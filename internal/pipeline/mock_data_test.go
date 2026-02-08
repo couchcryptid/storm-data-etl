@@ -25,7 +25,6 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 
 	cases := []struct {
 		name          string
-		fileName      string
 		eventType     string
 		expectedType  string
 		magnitudeKey  string
@@ -34,7 +33,6 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 	}{
 		{
 			name:          "hail",
-			fileName:      "hail_reports_240426_trimmed.json",
 			eventType:     "hail",
 			expectedType:  "hail",
 			magnitudeKey:  "Size",
@@ -42,16 +40,14 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 			convertHailIn: true,
 		},
 		{
-			name:         "torn",
-			fileName:     "tornado_reports_240426_trimmed.json",
-			eventType:    "torn",
+			name:         "tornado",
+			eventType:    "tornado",
 			expectedType: "tornado",
 			magnitudeKey: "F_Scale",
 			unit:         "f_scale",
 		},
 		{
 			name:         "wind",
-			fileName:     "wind_reports_240426_trimmed.json",
 			eventType:    "wind",
 			expectedType: "wind",
 			magnitudeKey: "Speed",
@@ -59,13 +55,15 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 		},
 	}
 
+	rows := readCombinedRows(t)
+
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			rows := readMockJSONRows(t, tc.fileName)
-			require.Len(t, rows, 10)
+			filtered := filterRowsByType(rows, tc.eventType)
+			require.Len(t, filtered, 10)
 
-			for i, row := range rows {
+			for i, row := range filtered {
 				event := stormEventFromRow(t, row, tc.eventType, tc.magnitudeKey, tc.unit, tc.convertHailIn, baseDate, i)
 				raw := rawEventFromStormEvent(t, event)
 
@@ -88,16 +86,26 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 	}
 }
 
-func readMockJSONRows(t *testing.T, fileName string) []mockJSONRow {
+func readCombinedRows(t *testing.T) []mockJSONRow {
 	t.Helper()
 
-	path := filepath.Join("..", "..", "data", "mock", fileName)
+	path := filepath.Join("..", "..", "data", "mock", "storm_reports_240426_combined.json")
 	data, err := os.ReadFile(path)
 	require.NoError(t, err)
 
 	var rows []mockJSONRow
 	require.NoError(t, json.Unmarshal(data, &rows))
 	return rows
+}
+
+func filterRowsByType(rows []mockJSONRow, eventType string) []mockJSONRow {
+	filtered := make([]mockJSONRow, 0, len(rows))
+	for _, row := range rows {
+		if strings.EqualFold(row["Type"], eventType) {
+			filtered = append(filtered, row)
+		}
+	}
+	return filtered
 }
 
 func stormEventFromRow(
