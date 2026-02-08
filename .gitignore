@@ -10,3 +10,8 @@ vendor/
 .venv/
 .vscode/*
 !.vscode/settings.json
+
+# CodeGraph (keep config tracked)
+.codegraph/*
+!.codegraph/config.json
+!.codegraph/.gitignore
