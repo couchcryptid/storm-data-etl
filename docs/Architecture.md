@@ -61,8 +61,8 @@ Kafka infrastructure adapters that directly implement the pipeline's `Extractor`
 
 Mapbox Geocoding API adapter that implements `domain.Geocoder`.
 
-- **`client.go`** -- HTTP client for forward and reverse geocoding via the Mapbox Places API
-- **`cache.go`** -- `CachedGeocoder` decorator wrapping any `Geocoder` with a thread-safe LRU cache. Empty results (no `FormattedAddress`) are not cached so transient "not found" responses can be retried.
+- **`client.go`** -- HTTP client for forward and reverse geocoding via the Mapbox Places API. Instrumented with Prometheus metrics for request outcomes (`etl_geocode_requests_total`) and API latency (`etl_geocode_api_duration_seconds`).
+- **`cache.go`** -- `CachedGeocoder` decorator wrapping any `Geocoder` with a thread-safe LRU cache. Instrumented with cache hit/miss metrics (`etl_geocode_cache_total`). Empty results (no `FormattedAddress`) are not cached so transient "not found" responses can be retried.
 
 ### `internal/adapter/http`
 
@@ -75,7 +75,7 @@ HTTP server for operational endpoints.
 ### `internal/observability`
 
 - **`logging.go`** -- Configurable structured logger (`slog`) with JSON or text output
-- **`metrics.go`** -- Prometheus counter, histogram, and gauge definitions
+- **`metrics.go`** -- Prometheus counter, histogram, and gauge definitions for pipeline and geocoding observability
 
 ### `internal/config`
 

@@ -54,7 +54,7 @@ Each instance processes its assigned partitions sequentially. Messages within a 
 | **Message buffer** | One message in flight at a time. Bounded by `MaxBytes` (10 MB) on the consumer fetch. |
 | **Transform** | Allocates a `StormEvent` struct (~0.5--2 KB) plus JSON marshal output per message. Short-lived, GC-friendly. |
 | **Regex** | Two compiled regexes (`sourceOfficeRe`, `locationRe`) allocated once at package init. |
-| **Prometheus** | Fixed set of 5 metric collectors. Negligible memory. |
+| **Prometheus** | Fixed set of 9 metric collectors (5 pipeline + 4 geocoding). Negligible memory. |
 | **Kafka client** | Internal buffers for fetch and produce batching. Typically 5--20 MB per reader/writer. |
 | **Geocoding LRU cache** | Thread-safe doubly-linked list + map. Up to `MAPBOX_CACHE_SIZE` (default 1000) entries, each ~0.5 KB. Max ~0.5 MB at capacity. Only present when geocoding is enabled. |
 
@@ -104,3 +104,28 @@ etl_pipeline_running
 ```
 
 The `etl_processing_duration_seconds` histogram buckets (`1ms, 5ms, 10ms, 50ms, 100ms, 500ms, 1s, 5s`) are tuned for the expected latency range of the ETL cycle.
+
+### Geocoding Metrics
+
+When geocoding is enabled (`etl_geocode_enabled == 1`), the following metrics are available:
+
+```promql
+# Geocoding feature flag status
+etl_geocode_enabled
+
+# API request rate by method and outcome
+rate(etl_geocode_requests_total[5m])
+
+# Cache hit rate (forward geocoding)
+rate(etl_geocode_cache_total{method="forward", result="hit"}[5m])
+  / rate(etl_geocode_cache_total{method="forward"}[5m])
+
+# Mapbox API latency (p99)
+histogram_quantile(0.99, rate(etl_geocode_api_duration_seconds_bucket[5m]))
+
+# Error rate across all geocoding methods
+sum(rate(etl_geocode_requests_total{outcome="error"}[5m]))
+  / sum(rate(etl_geocode_requests_total[5m]))
+```
+
+The `etl_geocode_api_duration_seconds` histogram buckets (`10ms, 50ms, 100ms, 250ms, 500ms, 1s, 2.5s, 5s`) are tuned for Mapbox API latency characteristics.

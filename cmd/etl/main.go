@@ -31,10 +31,12 @@ func main() {
 	// Initialize geocoder (feature-flagged via MAPBOX_ENABLED / MAPBOX_TOKEN).
 	var geocoder domain.Geocoder
 	if cfg.MapboxEnabled {
-		client := mapbox.NewClient(cfg.MapboxToken, cfg.MapboxTimeout, logger)
-		geocoder = mapbox.NewCachedGeocoder(client, cfg.MapboxCacheSize)
+		metrics.GeocodeEnabled.Set(1)
+		client := mapbox.NewClient(cfg.MapboxToken, cfg.MapboxTimeout, metrics, logger)
+		geocoder = mapbox.NewCachedGeocoder(client, cfg.MapboxCacheSize, metrics)
 		logger.Info("mapbox geocoding enabled", "cache_size", cfg.MapboxCacheSize, "timeout", cfg.MapboxTimeout)
 	} else {
+		metrics.GeocodeEnabled.Set(0)
 		logger.Info("mapbox geocoding disabled")
 	}
 

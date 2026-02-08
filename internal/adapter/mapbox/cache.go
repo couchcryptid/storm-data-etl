@@ -6,27 +6,32 @@ import (
 	"sync"
 
 	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
+	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
 )
 
 // CachedGeocoder wraps a Geocoder with an in-memory LRU cache.
 type CachedGeocoder struct {
-	inner domain.Geocoder
-	cache *lruCache
+	inner   domain.Geocoder
+	cache   *lruCache
+	metrics *observability.Metrics
 }
 
 // NewCachedGeocoder creates a cache decorator around a geocoder.
-func NewCachedGeocoder(inner domain.Geocoder, maxEntries int) *CachedGeocoder {
+func NewCachedGeocoder(inner domain.Geocoder, maxEntries int, metrics *observability.Metrics) *CachedGeocoder {
 	return &CachedGeocoder{
-		inner: inner,
-		cache: newLRUCache(maxEntries),
+		inner:   inner,
+		cache:   newLRUCache(maxEntries),
+		metrics: metrics,
 	}
 }
 
 func (c *CachedGeocoder) ForwardGeocode(ctx context.Context, name, state string) (domain.GeocodingResult, error) {
 	key := fmt.Sprintf("fwd:%s|%s", name, state)
 	if result, ok := c.cache.get(key); ok {
+		c.metrics.GeocodeCache.WithLabelValues("forward", "hit").Inc()
 		return result, nil
 	}
+	c.metrics.GeocodeCache.WithLabelValues("forward", "miss").Inc()
 	result, err := c.inner.ForwardGeocode(ctx, name, state)
 	if err != nil {
 		return result, err
@@ -41,8 +46,10 @@ func (c *CachedGeocoder) ForwardGeocode(ctx context.Context, name, state string)
 func (c *CachedGeocoder) ReverseGeocode(ctx context.Context, lat, lon float64) (domain.GeocodingResult, error) {
 	key := fmt.Sprintf("rev:%.6f,%.6f", lat, lon)
 	if result, ok := c.cache.get(key); ok {
+		c.metrics.GeocodeCache.WithLabelValues("reverse", "hit").Inc()
 		return result, nil
 	}
+	c.metrics.GeocodeCache.WithLabelValues("reverse", "miss").Inc()
 	result, err := c.inner.ReverseGeocode(ctx, lat, lon)
 	if err != nil {
 		return result, err

@@ -10,15 +10,21 @@ import (
 	"testing"
 	"time"
 
+	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func testMetrics() *observability.Metrics {
+	return observability.NewMetricsForTesting()
+}
 
 func testClient(baseURL string) *Client {
 	return &Client{
 		token:      "test-token",
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		baseURL:    baseURL,
+		metrics:    testMetrics(),
 		logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
@@ -106,6 +112,7 @@ func TestClient_ForwardGeocode_APIError(t *testing.T) {
 		token:      "bad-token",
 		httpClient: &http.Client{Timeout: 5 * time.Second},
 		baseURL:    srv.URL,
+		metrics:    testMetrics(),
 		logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
@@ -125,6 +132,7 @@ func TestClient_ForwardGeocode_Timeout(t *testing.T) {
 		token:      "test-token",
 		httpClient: &http.Client{Timeout: 50 * time.Millisecond},
 		baseURL:    srv.URL,
+		metrics:    testMetrics(),
 		logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 

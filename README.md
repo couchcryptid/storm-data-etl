@@ -67,13 +67,17 @@ All configuration is via environment variables (loaded from `.env` in Docker Com
 
 ## Prometheus Metrics
 
-| Metric                            | Type      | Description                                   |
-| --------------------------------- | --------- | --------------------------------------------- |
-| `etl_messages_consumed_total`     | Counter   | Messages read from the source topic           |
-| `etl_messages_produced_total`     | Counter   | Messages written to the sink topic            |
-| `etl_transform_errors_total`      | Counter   | Transformation failures (malformed input)     |
-| `etl_processing_duration_seconds` | Histogram | Duration of each extract-transform-load cycle |
-| `etl_pipeline_running`            | Gauge     | `1` when the pipeline loop is active          |
+| Metric                            | Type         | Labels                          | Description                                     |
+| --------------------------------- | ------------ | ------------------------------- | ----------------------------------------------- |
+| `etl_messages_consumed_total`     | Counter      | --                              | Messages read from the source topic             |
+| `etl_messages_produced_total`     | Counter      | --                              | Messages written to the sink topic              |
+| `etl_transform_errors_total`      | Counter      | --                              | Transformation failures (malformed input)       |
+| `etl_processing_duration_seconds` | Histogram    | --                              | Duration of each extract-transform-load cycle   |
+| `etl_pipeline_running`            | Gauge        | --                              | `1` when the pipeline loop is active            |
+| `etl_geocode_requests_total`      | Counter      | `method`, `outcome`             | Geocoding API requests (forward/reverse, success/error/empty) |
+| `etl_geocode_cache_total`         | Counter      | `method`, `result`              | Geocoding cache lookups (forward/reverse, hit/miss) |
+| `etl_geocode_api_duration_seconds`| Histogram    | `method`                        | Mapbox API request duration                     |
+| `etl_geocode_enabled`             | Gauge        | --                              | `1` when geocoding enrichment is active         |
 
 ## Make Targets
 

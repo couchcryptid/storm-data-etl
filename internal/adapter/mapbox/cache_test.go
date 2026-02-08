@@ -33,7 +33,7 @@ func TestCachedGeocoder_ForwardCacheHit(t *testing.T) {
 	inner := &countingGeocoder{
 		result: domain.GeocodingResult{Lat: 30.0, Lon: -97.0, PlaceName: "Austin", FormattedAddress: "Austin, TX"},
 	}
-	cached := NewCachedGeocoder(inner, 10)
+	cached := NewCachedGeocoder(inner, 10, testMetrics())
 
 	r1, err := cached.ForwardGeocode(context.Background(), "AUSTIN", "TX")
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestCachedGeocoder_ReverseCacheHit(t *testing.T) {
 	inner := &countingGeocoder{
 		result: domain.GeocodingResult{FormattedAddress: "Austin, TX"},
 	}
-	cached := NewCachedGeocoder(inner, 10)
+	cached := NewCachedGeocoder(inner, 10, testMetrics())
 
 	_, err := cached.ReverseGeocode(context.Background(), 30.2672, -97.7431)
 	require.NoError(t, err)
@@ -65,7 +65,7 @@ func TestCachedGeocoder_DifferentKeysMiss(t *testing.T) {
 	inner := &countingGeocoder{
 		result: domain.GeocodingResult{PlaceName: "Place", FormattedAddress: "Place, TX"},
 	}
-	cached := NewCachedGeocoder(inner, 10)
+	cached := NewCachedGeocoder(inner, 10, testMetrics())
 
 	_, _ = cached.ForwardGeocode(context.Background(), "AUSTIN", "TX")
 	_, _ = cached.ForwardGeocode(context.Background(), "DALLAS", "TX")

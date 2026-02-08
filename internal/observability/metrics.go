@@ -11,6 +11,12 @@ type Metrics struct {
 	TransformErrors    prometheus.Counter
 	ProcessingDuration prometheus.Histogram
 	PipelineRunning    prometheus.Gauge
+
+	// Geocoding metrics.
+	GeocodeRequests    *prometheus.CounterVec   // labels: method={forward,reverse}, outcome={success,error,empty}
+	GeocodeCache       *prometheus.CounterVec   // labels: method={forward,reverse}, result={hit,miss}
+	GeocodeAPIDuration *prometheus.HistogramVec // labels: method={forward,reverse}
+	GeocodeEnabled     prometheus.Gauge
 }
 
 // NewMetrics creates and registers all pipeline metrics with the default Prometheus registry.
@@ -42,6 +48,27 @@ func NewMetrics() *Metrics {
 			Name:      "pipeline_running",
 			Help:      "1 when the pipeline is active, 0 when shut down.",
 		}),
+		GeocodeRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "etl",
+			Name:      "geocode_requests_total",
+			Help:      "Geocoding API requests by method and outcome.",
+		}, []string{"method", "outcome"}),
+		GeocodeCache: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "etl",
+			Name:      "geocode_cache_total",
+			Help:      "Geocoding cache lookups by method and result.",
+		}, []string{"method", "result"}),
+		GeocodeAPIDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "etl",
+			Name:      "geocode_api_duration_seconds",
+			Help:      "Mapbox API request duration in seconds.",
+			Buckets:   []float64{0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5},
+		}, []string{"method"}),
+		GeocodeEnabled: prometheus.NewGauge(prometheus.GaugeOpts{
+			Namespace: "etl",
+			Name:      "geocode_enabled",
+			Help:      "1 when geocoding enrichment is enabled, 0 otherwise.",
+		}),
 	}
 
 	prometheus.MustRegister(
@@ -50,6 +77,10 @@ func NewMetrics() *Metrics {
 		m.TransformErrors,
 		m.ProcessingDuration,
 		m.PipelineRunning,
+		m.GeocodeRequests,
+		m.GeocodeCache,
+		m.GeocodeAPIDuration,
+		m.GeocodeEnabled,
 	)
 
 	return m
@@ -64,5 +95,9 @@ func NewMetricsForTesting() *Metrics {
 		TransformErrors:    prometheus.NewCounter(prometheus.CounterOpts{Namespace: "etl", Name: "transform_errors_total"}),
 		ProcessingDuration: prometheus.NewHistogram(prometheus.HistogramOpts{Namespace: "etl", Name: "processing_duration_seconds"}),
 		PipelineRunning:    prometheus.NewGauge(prometheus.GaugeOpts{Namespace: "etl", Name: "pipeline_running"}),
+		GeocodeRequests:    prometheus.NewCounterVec(prometheus.CounterOpts{Namespace: "etl", Name: "geocode_requests_total"}, []string{"method", "outcome"}),
+		GeocodeCache:       prometheus.NewCounterVec(prometheus.CounterOpts{Namespace: "etl", Name: "geocode_cache_total"}, []string{"method", "result"}),
+		GeocodeAPIDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{Namespace: "etl", Name: "geocode_api_duration_seconds"}, []string{"method"}),
+		GeocodeEnabled:     prometheus.NewGauge(prometheus.GaugeOpts{Namespace: "etl", Name: "geocode_enabled"}),
 	}
 }
