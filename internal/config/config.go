@@ -46,6 +46,9 @@ func Load() (*Config, error) {
 		return nil, errors.New("invalid SHUTDOWN_TIMEOUT")
 	}
 
+	if len(cfg.KafkaBrokers) == 0 {
+		return nil, errors.New("KAFKA_BROKERS is required")
+	}
 	if cfg.KafkaSourceTopic == "" {
 		return nil, errors.New("KAFKA_SOURCE_TOPIC is required")
 	}

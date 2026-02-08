@@ -1,5 +1,5 @@
 bin/
-coverage.out
+/etl
 .env
 *.exe
 *.test

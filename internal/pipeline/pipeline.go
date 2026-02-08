@@ -3,6 +3,7 @@ package pipeline
 import (
 	"context"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
@@ -31,7 +32,7 @@ type Pipeline struct {
 	loader      Loader
 	logger      *slog.Logger
 	metrics     *observability.Metrics
-	ready       bool
+	ready       atomic.Bool
 }
 
 // New creates a Pipeline with the given stages and observability.
@@ -47,7 +48,7 @@ func New(e Extractor, t Transformer, l Loader, logger *slog.Logger, metrics *obs
 
 // Ready reports whether the pipeline has successfully processed at least one message.
 func (p *Pipeline) Ready() bool {
-	return p.ready
+	return p.ready.Load()
 }
 
 // Run executes the ETL loop until the context is cancelled.
@@ -82,6 +83,7 @@ func (p *Pipeline) Run(ctx context.Context) error {
 			continue
 		}
 		p.metrics.MessagesConsumed.Inc()
+		backoff = 200 * time.Millisecond
 
 		out, err := p.transformer.Transform(ctx, raw)
 		if err != nil {
@@ -115,8 +117,7 @@ func (p *Pipeline) Run(ctx context.Context) error {
 		}
 
 		p.metrics.ProcessingDuration.Observe(time.Since(start).Seconds())
-		backoff = 200 * time.Millisecond
-		p.ready = true
+		p.ready.Store(true)
 	}
 }
 

@@ -1,0 +1,101 @@
+# Deployment
+
+## Docker Compose (Local Development)
+
+The `compose.yml` at the repo root runs the full stack: Zookeeper, Kafka, and the ETL service.
+
+### Start
+
+```sh
+cp .env.example .env
+docker compose up --build
+```
+
+### Stop
+
+```sh
+docker compose down
+```
+
+To remove volumes (Kafka data, Zookeeper state):
+
+```sh
+docker compose down -v
+```
+
+### Services
+
+| Service | Image | Port | Description |
+|---|---|---|---|
+| `zookeeper` | `confluentinc/cp-zookeeper:7.7.0` | 2181 | Kafka coordination |
+| `kafka` | `confluentinc/cp-kafka:7.7.0` | 9092 | Message broker |
+| `storm-data-etl` | Built from `Dockerfile` | 8080 | ETL service |
+
+### Health Checks
+
+All services have health checks configured:
+
+- **Zookeeper**: TCP check on port 2181
+- **Kafka**: `kafka-topics --list` against the internal listener
+- **ETL**: HTTP `GET /healthz`
+
+Services start in dependency order: Zookeeper -> Kafka (waits for healthy Zookeeper) -> ETL (waits for healthy Kafka).
+
+### Resource Limits
+
+| Service | Memory Limit | Memory Reservation |
+|---|---|---|
+| Zookeeper | 512 MB | 256 MB |
+| Kafka | 1 GB | 512 MB |
+| ETL | 256 MB | 128 MB |
+
+## Docker Image
+
+The service uses a multi-stage build:
+
+1. **Build stage** (`golang:1.25-alpine`): Compiles the binary with `-ldflags="-s -w"` for a smaller output
+2. **Runtime stage** (`gcr.io/distroless/static-debian12`): Minimal image with no shell or package manager
+
+The final image contains only the binary and CA certificates.
+
+### Build Manually
+
+```sh
+docker build -t storm-data-etl .
+```
+
+### Run Standalone
+
+```sh
+docker run -p 8080:8080 \
+  -e KAFKA_BROKERS=host.docker.internal:9092 \
+  -e KAFKA_SOURCE_TOPIC=raw-weather-reports \
+  -e KAFKA_SINK_TOPIC=transformed-weather-data \
+  storm-data-etl
+```
+
+## Environment Files
+
+| File | Used By | Description |
+|---|---|---|
+| `.env.example` | Reference | Template for the ETL service config |
+| `.env` | `storm-data-etl` container | Actual ETL config (gitignored) |
+| `.env.kafka` | `kafka` container | Kafka broker settings (listeners, replication) |
+| `.env.zookeeper` | `zookeeper` container | Zookeeper client port and tick time |
+
+### Kafka Environment (.env.kafka)
+
+Key settings:
+
+- `KAFKA_ADVERTISED_LISTENERS`: Exposes both an internal listener (`kafka:29092` for inter-container traffic) and an external listener (`localhost:9092` for host access)
+- `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`: Topics are auto-created when the service starts consuming/producing
+- `KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1`: Single-node setup for local development
+
+## Production Considerations
+
+- Replace the single-node Kafka/Zookeeper setup with a managed Kafka service or multi-broker cluster
+- Set `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false` and pre-create topics with appropriate partition counts and replication factors
+- Configure `KAFKA_GROUP_ID` per environment to isolate consumer groups
+- Set `LOG_FORMAT=json` for structured log aggregation
+- Monitor the Prometheus metrics endpoint with your observability stack
+- Consider running multiple ETL instances for horizontal scaling (Kafka consumer groups handle partition assignment automatically)

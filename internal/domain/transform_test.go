@@ -11,11 +11,6 @@ import (
 )
 
 func TestParseRawEvent(t *testing.T) {
-	fixedTime := time.Date(2024, 4, 26, 12, 0, 0, 0, time.UTC)
-	mockClock := clockwork.NewFakeClockAt(fixedTime)
-	SetClock(mockClock)
-	defer SetClock(nil)
-
 	t.Run("valid JSON", func(t *testing.T) {
 		payload := StormEvent{
 			ID:        "evt-123",
@@ -37,7 +32,7 @@ func TestParseRawEvent(t *testing.T) {
 		assert.Equal(t, "in", result.Unit)
 		assert.Equal(t, "COOP", result.Source)
 		assert.Equal(t, data, result.RawPayload)
-		assert.Equal(t, fixedTime, result.ProcessedAt)
+		assert.True(t, result.ProcessedAt.IsZero())
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
@@ -54,7 +49,7 @@ func TestParseRawEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "", result.ID)
-		assert.Equal(t, fixedTime, result.ProcessedAt)
+		assert.True(t, result.ProcessedAt.IsZero())
 	})
 }
 
@@ -128,9 +123,11 @@ func TestNormalizeEventType(t *testing.T) {
 		{"wind", "wind", "wind"},
 		{"tornado", "tornado", "tornado"},
 		{"torn to tornado", "torn", "tornado"},
-		{"uppercase not normalized", "HAIL", ""},
-		{"mixed case not normalized", "Hail", ""},
-		{"with spaces not normalized", "  hail  ", ""},
+		{"uppercase normalized", "HAIL", "hail"},
+		{"mixed case normalized", "Hail", "hail"},
+		{"with spaces normalized", "  hail  ", "hail"},
+		{"uppercase wind", "WIND", "wind"},
+		{"uppercase torn", "TORN", "tornado"},
 		{"unknown type", "snow", ""},
 		{"empty string", "", ""},
 	}

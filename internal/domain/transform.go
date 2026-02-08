@@ -9,6 +9,11 @@ import (
 	"time"
 )
 
+var (
+	sourceOfficeRe = regexp.MustCompile(`\(([A-Z]{3,5})\)\s*$`)
+	locationRe     = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+([NSEW]{1,3})\s+(.+)$`)
+)
+
 // ParseRawEvent deserializes a RawEvent's value into a StormEvent.
 func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 	var event StormEvent
@@ -16,7 +21,6 @@ func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 		return StormEvent{}, fmt.Errorf("parse raw event: %w", err)
 	}
 	event.RawPayload = raw.Value
-	event.ProcessedAt = clock.Now()
 	return event, nil
 }
 
@@ -41,9 +45,13 @@ func EnrichStormEvent(event StormEvent) StormEvent {
 // Event type is not part of the original CSV data; it's added when converting CSV to JSON.
 // Accepts: "hail", "wind", "tornado", "torn" (converts to "tornado")
 func normalizeEventType(value string) string {
-	switch value {
-	case "hail", "wind", "tornado":
-		return value
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "hail":
+		return "hail"
+	case "wind":
+		return "wind"
+	case "tornado":
+		return "tornado"
 	case "torn":
 		return "tornado"
 	default:
@@ -129,8 +137,7 @@ func extractSourceOffice(comments string) string {
 		return ""
 	}
 
-	re := regexp.MustCompile(`\(([A-Z]{3,5})\)\s*$`)
-	matches := re.FindStringSubmatch(comments)
+	matches := sourceOfficeRe.FindStringSubmatch(comments)
 	if len(matches) == 2 {
 		return matches[1]
 	}
@@ -144,8 +151,7 @@ func parseLocation(location string) (string, float64, string) {
 		return "", 0, ""
 	}
 
-	re := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+([NSEW]{1,3})\s+(.+)$`)
-	matches := re.FindStringSubmatch(location)
+	matches := locationRe.FindStringSubmatch(location)
 	if len(matches) != 4 {
 		return location, 0, ""
 	}

@@ -2,7 +2,6 @@ package pipeline
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
 )
@@ -16,12 +15,11 @@ type MessageReader interface {
 // KafkaExtractor implements Extractor by delegating to a MessageReader.
 type KafkaExtractor struct {
 	reader MessageReader
-	logger *slog.Logger
 }
 
 // NewExtractor creates a KafkaExtractor backed by the given reader.
-func NewExtractor(reader MessageReader, logger *slog.Logger) *KafkaExtractor {
-	return &KafkaExtractor{reader: reader, logger: logger}
+func NewExtractor(reader MessageReader) *KafkaExtractor {
+	return &KafkaExtractor{reader: reader}
 }
 
 func (e *KafkaExtractor) Extract(ctx context.Context) (domain.RawEvent, error) {

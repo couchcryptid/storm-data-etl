@@ -29,9 +29,9 @@ func main() {
 	reader := kafkaadapter.NewReader(cfg, logger)
 	writer := kafkaadapter.NewWriter(cfg, logger)
 
-	extractor := pipeline.NewExtractor(reader, logger)
-	transformer := pipeline.NewTransformer(logger)
-	loader := pipeline.NewLoader(writer, logger)
+	extractor := pipeline.NewExtractor(reader)
+	transformer := pipeline.NewTransformer()
+	loader := pipeline.NewLoader(writer)
 
 	p := pipeline.New(extractor, transformer, loader, logger, metrics)
 

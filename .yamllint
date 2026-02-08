@@ -4,4 +4,4 @@ rules:
   document-start: disable
   truthy: disable
   line-length:
-    max: 120
+    max: 140

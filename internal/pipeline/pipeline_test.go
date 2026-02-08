@@ -145,7 +145,7 @@ func TestPipeline_Run_CommitsAfterLoad(t *testing.T) {
 func TestStormTransformer_Transform(t *testing.T) {
 	raw := makeRawEvent(t, "evt-3", "torn")
 
-	tfm := pipeline.NewTransformer(slog.Default())
+	tfm := pipeline.NewTransformer()
 	out, err := tfm.Transform(context.Background(), raw)
 	require.NoError(t, err)
 	assert.Equal(t, []byte("evt-3"), out.Key)
@@ -158,7 +158,7 @@ func TestDomain_ParseRawEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "evt-4", event.ID)
 	assert.Equal(t, "wind", event.EventType)
-	assert.False(t, event.ProcessedAt.IsZero())
+	assert.True(t, event.ProcessedAt.IsZero())
 }
 
 func TestDomain_ParseRawEvent_Invalid(t *testing.T) {
