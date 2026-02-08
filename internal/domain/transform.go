@@ -10,8 +10,13 @@ import (
 )
 
 var (
+	// sourceOfficeRe matches a 3-5 letter NWS office code in parentheses at the
+	// end of a comment, e.g. "Quarter hail reported. (FWD)" -> "FWD".
 	sourceOfficeRe = regexp.MustCompile(`\(([A-Z]{3,5})\)\s*$`)
-	locationRe     = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+([NSEW]{1,3})\s+(.+)$`)
+
+	// locationRe parses NWS-style relative locations: "<distance> <compass> <name>",
+	// e.g. "8 ESE Chappel" -> distance=8, direction=ESE, name=Chappel.
+	locationRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+([NSEW]{1,3})\s+(.+)$`)
 )
 
 // ParseRawEvent deserializes a RawEvent's value into a StormEvent.
@@ -24,8 +29,10 @@ func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 	return event, nil
 }
 
-// EnrichStormEvent applies enrichment logic to a parsed event.
-// Currently a passthrough — extend with normalization, classification, etc.
+// EnrichStormEvent normalizes, classifies, and enriches a parsed storm event.
+// It validates the event type, infers default units, corrects magnitude encoding
+// issues, derives a severity label, extracts the NWS source office from comments,
+// parses structured location fields, and assigns an hourly time bucket.
 func EnrichStormEvent(event StormEvent) StormEvent {
 	event.EventType = normalizeEventType(event.EventType)
 	event.Unit = normalizeUnit(event.EventType, event.Unit)
@@ -53,6 +60,8 @@ func normalizeEventType(value string) string {
 	}
 }
 
+// normalizeUnit returns the unit as-is if present, otherwise infers the default
+// unit for the event type: inches for hail, mph for wind, F-scale for tornado.
 func normalizeUnit(eventType, unit string) string {
 	unit = strings.ToLower(strings.TrimSpace(unit))
 	if unit != "" {
@@ -71,6 +80,9 @@ func normalizeUnit(eventType, unit string) string {
 	}
 }
 
+// normalizeMagnitude corrects known encoding issues in upstream data.
+// Some hail reports encode diameter in hundredths of inches (e.g. 175 = 1.75in).
+// Values >= 10 with unit "in" are assumed to use this encoding and are divided by 100.
 func normalizeMagnitude(eventType string, magnitude float64, unit string) float64 {
 	if magnitude == 0 {
 		return magnitude
@@ -81,6 +93,10 @@ func normalizeMagnitude(eventType string, magnitude float64, unit string) float6
 	return magnitude
 }
 
+// deriveSeverity maps magnitude to a severity label based on NWS thresholds:
+//   - hail: <0.75in minor, <1.5in moderate, <2.5in severe, else extreme
+//   - wind: <50mph minor, <74mph moderate (tropical storm), <96mph severe, else extreme
+//   - tornado: EF0-1 minor, EF2 moderate, EF3-4 severe, EF5 extreme
 func deriveSeverity(eventType string, magnitude float64) string {
 	if magnitude == 0 {
 		return ""
@@ -125,6 +141,8 @@ func deriveSeverity(eventType string, magnitude float64) string {
 	}
 }
 
+// extractSourceOffice pulls the NWS Weather Forecast Office (WFO) code from the
+// end of a comment string, e.g. "Large hail reported. (OUN)" -> "OUN".
 func extractSourceOffice(comments string) string {
 	comments = strings.TrimSpace(comments)
 	if comments == "" {
@@ -139,6 +157,9 @@ func extractSourceOffice(comments string) string {
 	return ""
 }
 
+// parseLocation splits an NWS relative location string into (name, distance, direction).
+// Input format: "<miles> <compass> <place>", e.g. "8 ESE Chappel".
+// Returns the raw string as name if parsing fails.
 func parseLocation(location string) (string, float64, string) {
 	location = strings.TrimSpace(location)
 	if location == "" {
@@ -162,6 +183,8 @@ func parseLocationDistance(value string) (float64, error) {
 	return strconv.ParseFloat(value, 64)
 }
 
+// deriveTimeBucket truncates the event's begin time to the hour in UTC,
+// producing a bucket key like "2024-04-26T15:00:00Z" for downstream aggregation.
 func deriveTimeBucket(begin time.Time) string {
 	if begin.IsZero() {
 		return ""

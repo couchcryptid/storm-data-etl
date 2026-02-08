@@ -44,16 +44,14 @@ Pure domain logic with no infrastructure dependencies.
 Orchestration layer that defines the ETL interfaces and loop.
 
 - **`pipeline.go`** -- `Extractor`, `Transformer`, and `Loader` interfaces. The `Pipeline` struct runs the continuous extract-transform-load loop with backoff on failure.
-- **`extract.go`** -- `KafkaExtractor` adapts `MessageReader` to the `Extractor` interface
 - **`transform.go`** -- `StormTransformer` adapts domain functions to the `Transformer` interface
-- **`load.go`** -- `KafkaLoader` adapts `MessageWriter` to the `Loader` interface
 
 ### `internal/adapter/kafka`
 
-Kafka infrastructure adapters implementing the pipeline's port interfaces.
+Kafka infrastructure adapters that directly implement the pipeline's `Extractor` and `Loader` interfaces.
 
-- **`reader.go`** -- Wraps `segmentio/kafka-go` Reader with explicit offset commit (consumer group mode)
-- **`writer.go`** -- Wraps `segmentio/kafka-go` Writer with `RequireAll` acks
+- **`reader.go`** -- Wraps `segmentio/kafka-go` Reader with explicit offset commit (consumer group mode). Implements `pipeline.Extractor`.
+- **`writer.go`** -- Wraps `segmentio/kafka-go` Writer with `RequireAll` acks. Implements `pipeline.Loader`.
 
 ### `internal/adapter/http`
 
@@ -70,7 +68,7 @@ HTTP server for operational endpoints.
 
 ### `internal/config`
 
-Environment-based configuration using Viper with sensible defaults and validation.
+Environment-based configuration using `os.Getenv` with sensible defaults and validation.
 
 ## Design Decisions
 

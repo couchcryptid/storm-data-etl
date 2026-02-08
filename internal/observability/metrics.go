@@ -4,6 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Metrics holds the Prometheus counters, histograms, and gauges for the ETL pipeline.
 type Metrics struct {
 	MessagesConsumed   prometheus.Counter
 	MessagesProduced   prometheus.Counter
@@ -12,6 +13,7 @@ type Metrics struct {
 	PipelineRunning    prometheus.Gauge
 }
 
+// NewMetrics creates and registers all pipeline metrics with the default Prometheus registry.
 func NewMetrics() *Metrics {
 	m := &Metrics{
 		MessagesConsumed: prometheus.NewCounter(prometheus.CounterOpts{

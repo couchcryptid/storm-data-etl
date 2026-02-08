@@ -17,6 +17,7 @@ type RawEvent struct {
 	Commit    func(ctx context.Context) error
 }
 
+// Location holds both the raw NWS location string and its parsed components.
 type Location struct {
 	Raw       string  `json:"raw,omitempty"`
 	Name      string  `json:"name,omitempty"`
@@ -26,6 +27,7 @@ type Location struct {
 	County    string  `json:"county,omitempty"`
 }
 
+// Geo represents a WGS-84 latitude/longitude coordinate pair.
 type Geo struct {
 	Lat float64 `json:"lat,omitempty"`
 	Lon float64 `json:"lon,omitempty"`

@@ -19,14 +19,13 @@ Each event passes through these steps in order:
 
 ## Event Type Normalization
 
-Case-insensitive matching with whitespace trimming. Input is lowercased before comparison.
+Exact match only. The event type is metadata added by the upstream service when converting CSV to JSON, so it is expected to already be normalized.
 
-| Input (any case) | Output |
+| Input | Output |
 |---|---|
 | `hail` | `hail` |
 | `wind` | `wind` |
 | `tornado` | `tornado` |
-| `torn` | `tornado` |
 | anything else | `""` (empty) |
 
 ## Unit Defaults

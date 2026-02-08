@@ -2,12 +2,12 @@ package config
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"time"
-
-	"github.com/spf13/viper"
 )
 
+// Config holds all service settings, populated from environment variables.
 type Config struct {
 	KafkaBrokers     []string
 	KafkaSourceTopic string
@@ -19,31 +19,23 @@ type Config struct {
 	ShutdownTimeout  time.Duration
 }
 
+// Load reads configuration from environment variables, applying defaults where unset.
 func Load() (*Config, error) {
-	v := viper.New()
-	v.SetDefault("KAFKA_BROKERS", "localhost:9092")
-	v.SetDefault("KAFKA_SOURCE_TOPIC", "raw-weather-reports")
-	v.SetDefault("KAFKA_SINK_TOPIC", "transformed-weather-data")
-	v.SetDefault("KAFKA_GROUP_ID", "storm-data-etl")
-	v.SetDefault("HTTP_ADDR", ":8080")
-	v.SetDefault("LOG_LEVEL", "info")
-	v.SetDefault("LOG_FORMAT", "json")
-	v.SetDefault("SHUTDOWN_TIMEOUT", "10s")
-	v.AutomaticEnv()
-
-	cfg := &Config{
-		KafkaBrokers:     parseBrokers(v.GetString("KAFKA_BROKERS")),
-		KafkaSourceTopic: v.GetString("KAFKA_SOURCE_TOPIC"),
-		KafkaSinkTopic:   v.GetString("KAFKA_SINK_TOPIC"),
-		KafkaGroupID:     v.GetString("KAFKA_GROUP_ID"),
-		HTTPAddr:         v.GetString("HTTP_ADDR"),
-		LogLevel:         v.GetString("LOG_LEVEL"),
-		LogFormat:        v.GetString("LOG_FORMAT"),
-		ShutdownTimeout:  v.GetDuration("SHUTDOWN_TIMEOUT"),
+	shutdownStr := envOrDefault("SHUTDOWN_TIMEOUT", "10s")
+	shutdownTimeout, err := time.ParseDuration(shutdownStr)
+	if err != nil || shutdownTimeout <= 0 {
+		return nil, errors.New("invalid SHUTDOWN_TIMEOUT")
 	}
 
-	if cfg.ShutdownTimeout <= 0 {
-		return nil, errors.New("invalid SHUTDOWN_TIMEOUT")
+	cfg := &Config{
+		KafkaBrokers:     parseBrokers(envOrDefault("KAFKA_BROKERS", "localhost:9092")),
+		KafkaSourceTopic: envOrDefault("KAFKA_SOURCE_TOPIC", "raw-weather-reports"),
+		KafkaSinkTopic:   envOrDefault("KAFKA_SINK_TOPIC", "transformed-weather-data"),
+		KafkaGroupID:     envOrDefault("KAFKA_GROUP_ID", "storm-data-etl"),
+		HTTPAddr:         envOrDefault("HTTP_ADDR", ":8080"),
+		LogLevel:         envOrDefault("LOG_LEVEL", "info"),
+		LogFormat:        envOrDefault("LOG_FORMAT", "json"),
+		ShutdownTimeout:  shutdownTimeout,
 	}
 
 	if len(cfg.KafkaBrokers) == 0 {
@@ -57,6 +49,13 @@ func Load() (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func envOrDefault(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func parseBrokers(value string) []string {

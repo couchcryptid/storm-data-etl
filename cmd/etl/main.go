@@ -28,12 +28,9 @@ func main() {
 
 	reader := kafkaadapter.NewReader(cfg, logger)
 	writer := kafkaadapter.NewWriter(cfg, logger)
-
-	extractor := pipeline.NewExtractor(reader)
 	transformer := pipeline.NewTransformer()
-	loader := pipeline.NewLoader(writer)
 
-	p := pipeline.New(extractor, transformer, loader, logger, metrics)
+	p := pipeline.New(reader, transformer, writer, logger, metrics)
 
 	srv := httpadapter.NewServer(cfg.HTTPAddr, p, logger)
 

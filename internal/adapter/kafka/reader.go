@@ -10,7 +10,7 @@ import (
 )
 
 // Reader consumes messages from a Kafka topic.
-// It implements pipeline.MessageReader.
+// It implements pipeline.Extractor.
 type Reader struct {
 	reader *kafkago.Reader
 	logger *slog.Logger
@@ -28,7 +28,10 @@ func NewReader(cfg *config.Config, logger *slog.Logger) *Reader {
 	return &Reader{reader: r, logger: logger}
 }
 
-func (r *Reader) ReadMessage(ctx context.Context) (domain.RawEvent, error) {
+// Extract fetches a single message from Kafka without auto-committing the offset.
+// The returned RawEvent includes a Commit callback that the caller must invoke
+// after successful processing to achieve at-least-once delivery semantics.
+func (r *Reader) Extract(ctx context.Context) (domain.RawEvent, error) {
 	msg, err := r.reader.FetchMessage(ctx)
 	if err != nil {
 		return domain.RawEvent{}, err

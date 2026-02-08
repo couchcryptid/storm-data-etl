@@ -111,8 +111,7 @@ A separate `semantic-release` workflow handles versioning and GitHub releases on
 
 ## Project Conventions
 
-- **Interfaces defined by consumers**: The `Extractor`, `Transformer`, and `Loader` interfaces are defined in the `pipeline` package (which uses them), not in the adapter packages that implement them.
-- **Port interfaces for infrastructure**: `MessageReader` and `MessageWriter` are defined alongside the pipeline stages and implemented by the Kafka adapters.
+- **Interfaces defined by consumers**: The `Extractor`, `Transformer`, and `Loader` interfaces are defined in the `pipeline` package (which uses them), not in the adapter packages that implement them. The Kafka adapters satisfy these interfaces directly.
 - **Domain logic is pure**: The `domain` package has no infrastructure imports. Transformation functions are stateless and operate on domain types.
 - **Testable time**: The `clock` package variable (via `clockwork`) allows tests to control time without relying on `time.Sleep` or wall-clock assertions.
 - **Structured logging**: All logging uses `log/slog` with key-value pairs. The pipeline logs include Kafka metadata (topic, partition, offset) for traceability.

@@ -10,7 +10,7 @@ import (
 )
 
 // Writer produces messages to a Kafka topic.
-// It implements pipeline.MessageWriter.
+// It implements pipeline.Loader.
 type Writer struct {
 	writer *kafkago.Writer
 	logger *slog.Logger
@@ -27,7 +27,8 @@ func NewWriter(cfg *config.Config, logger *slog.Logger) *Writer {
 	return &Writer{writer: w, logger: logger}
 }
 
-func (w *Writer) WriteMessage(ctx context.Context, event domain.OutputEvent) error {
+// Load publishes a single transformed event to the sink Kafka topic.
+func (w *Writer) Load(ctx context.Context, event domain.OutputEvent) error {
 	msg := mapOutputEventToMessage(event)
 	return w.writer.WriteMessages(ctx, msg)
 }
