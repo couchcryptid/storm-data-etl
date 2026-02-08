@@ -1,0 +1,12 @@
+bin/
+coverage.out
+.env
+*.exe
+*.test
+*.out
+.DS_Store
+vendor/
+.idea/
+.venv/
+.vscode/*
+!.vscode/settings.json

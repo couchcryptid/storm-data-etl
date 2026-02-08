@@ -1,0 +1,102 @@
+[
+  {
+    "Time": "1510",
+    "Size": "125",
+    "Location": "8 ESE Chappel",
+    "County": "San Saba",
+    "State": "TX",
+    "Lat": "31.02",
+    "Lon": "-98.44",
+    "Comments": "1.25 inch hail reported at Colorado Bend State Park. (SJT)"
+  },
+  {
+    "Time": "1703",
+    "Size": "100",
+    "Location": "3 SE Burleson",
+    "County": "Johnson",
+    "State": "TX",
+    "Lat": "32.5",
+    "Lon": "-97.29",
+    "Comments": "Quarter hail reported. (FWD)"
+  },
+  {
+    "Time": "1704",
+    "Size": "100",
+    "Location": "Anthon",
+    "County": "Woodbury",
+    "State": "IA",
+    "Lat": "42.39",
+    "Lon": "-95.87",
+    "Comments": "Report via social media. (FSD)"
+  },
+  {
+    "Time": "1709",
+    "Size": "100",
+    "Location": "2 SE Kennedale",
+    "County": "Tarrant",
+    "State": "TX",
+    "Lat": "32.63",
+    "Lon": "-97.21",
+    "Comments": "Report from mPING: Quarter (1.00 in.). (FWD)"
+  },
+  {
+    "Time": "1710",
+    "Size": "175",
+    "Location": "2 NE Kennedale",
+    "County": "Tarrant",
+    "State": "TX",
+    "Lat": "32.77",
+    "Lon": "-97.31",
+    "Comments": "Golf ball hail reported at Little Rd and I20 in SE Fort Worth. (FWD)"
+  },
+  {
+    "Time": "1710",
+    "Size": "175",
+    "Location": "Ravenna",
+    "County": "Buffalo",
+    "State": "NE",
+    "Lat": "41.02",
+    "Lon": "-98.91",
+    "Comments": "Also reports of dime to half-dollar size hail in Ravenna. (GID)"
+  },
+  {
+    "Time": "1711",
+    "Size": "100",
+    "Location": "Arlington",
+    "County": "Tarrant",
+    "State": "TX",
+    "Lat": "32.69",
+    "Lon": "-97.13",
+    "Comments": "Quarter hail reported in Arlington. (FWD)"
+  },
+  {
+    "Time": "1719",
+    "Size": "175",
+    "Location": "2 NE Arlington",
+    "County": "Tarrant",
+    "State": "TX",
+    "Lat": "32.71",
+    "Lon": "-97.11",
+    "Comments": "Report from mPING: Golf Ball (1.75 in.). (FWD)"
+  },
+  {
+    "Time": "1725",
+    "Size": "125",
+    "Location": "2 N Ravenna",
+    "County": "Sherman",
+    "State": "NE",
+    "Lat": "41.06",
+    "Lon": "-98.91",
+    "Comments": "Started to cover the ground with quarter to half-dollar size hail. (GID)"
+  },
+  {
+    "Time": "1730",
+    "Size": "125",
+    "Location": "4 NNW Washta",
+    "County": "Cherokee",
+    "State": "IA",
+    "Lat": "42.63",
+    "Lon": "-95.75",
+    "Comments": "Quarter to Half Dollar sized hail reported by the Cherokee County EM. Time matched up to Radar. (FSD)"
+  }
+]

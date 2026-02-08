@@ -1,0 +1,28 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.7.0
+    env_file: .env.zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.7.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    env_file: .env.kafka
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:29092", "--list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  etl:
+    build: .
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    env_file: .env
