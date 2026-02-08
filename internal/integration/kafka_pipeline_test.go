@@ -28,7 +28,7 @@ func TestKafkaPipeline_Integration(t *testing.T) {
 	require.NoError(t, err)
 
 	err = stack.
-		WaitForService("etl", wait.ForListeningPort("8080/tcp")).
+		WaitForService("storm-data-etl", wait.ForListeningPort("8080/tcp")).
 		Up(ctx, compose.Wait(true))
 	require.NoError(t, err)
 	defer func() {
@@ -83,12 +83,17 @@ func TestKafkaPipeline_Integration(t *testing.T) {
 
 	received, err := readTransformed(ctx, reader)
 	require.NoError(t, err)
-	require.Equal(t, "tornado", received.EventType)
-	require.Equal(t, "OK", received.Location.State)
-	require.Equal(t, "Pittsburg", received.Location.County)
-	require.Equal(t, "Mcalester", received.Location.Name)
-	require.Equal(t, "TSA", received.SourceOffice)
-	require.Equal(t, "2024-04-26T12:00:00Z", received.TimeBucket)
+	require.Equal(t, input.ID, received.Key)
+	require.Equal(t, "tornado", received.Headers["type"])
+	require.Contains(t, received.Headers, "processed_at")
+	_, err = time.Parse(time.RFC3339, received.Headers["processed_at"])
+	require.NoError(t, err)
+	require.Equal(t, "tornado", received.Event.EventType)
+	require.Equal(t, "OK", received.Event.Location.State)
+	require.Equal(t, "Pittsburg", received.Event.Location.County)
+	require.Equal(t, "Mcalester", received.Event.Location.Name)
+	require.Equal(t, "TSA", received.Event.SourceOffice)
+	require.Equal(t, "2024-04-26T12:00:00Z", received.Event.TimeBucket)
 }
 
 func waitForKafka(ctx context.Context, address string) error {
@@ -160,19 +165,34 @@ func ensureTopics(broker string, topics ...string) error {
 	return nil
 }
 
-func readTransformed(ctx context.Context, reader *kafkago.Reader) (domain.StormEvent, error) {
+type transformedMessage struct {
+	Event   domain.StormEvent
+	Key     string
+	Headers map[string]string
+}
+
+func readTransformed(ctx context.Context, reader *kafkago.Reader) (transformedMessage, error) {
 	readCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 
 	msg, err := reader.ReadMessage(readCtx)
 	if err != nil {
-		return domain.StormEvent{}, fmt.Errorf("read transformed: %w", err)
+		return transformedMessage{}, fmt.Errorf("read transformed: %w", err)
+	}
+
+	headers := make(map[string]string, len(msg.Headers))
+	for _, h := range msg.Headers {
+		headers[h.Key] = string(h.Value)
 	}
 
 	var event domain.StormEvent
 	if err := json.Unmarshal(msg.Value, &event); err != nil {
-		return domain.StormEvent{}, fmt.Errorf("unmarshal transformed: %w", err)
+		return transformedMessage{}, fmt.Errorf("unmarshal transformed: %w", err)
 	}
 
-	return event, nil
+	return transformedMessage{
+		Event:   event,
+		Key:     string(msg.Key),
+		Headers: headers,
+	}, nil
 }

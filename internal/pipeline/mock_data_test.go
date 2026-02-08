@@ -58,7 +58,6 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 	rows := readCombinedRows(t)
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			filtered := filterRowsByType(rows, tc.eventType)
 			require.Len(t, filtered, 10)

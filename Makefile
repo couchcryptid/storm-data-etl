@@ -1,4 +1,4 @@
-.PHONY: build run test test-cover lint fmt clean
+.PHONY: build run test test-unit test-integration test-cover lint fmt clean
 
 build:
 	go build -o bin/etl ./cmd/etl
@@ -6,8 +6,13 @@ build:
 run:
 	go run ./cmd/etl
 
-test:
+test: test-unit test-integration
+
+test-unit:
 	go test ./... -v -race -count=1
+
+test-integration:
+	go test ./internal/integration -v -tags=integration
 
 test-cover:
 	go test ./... -coverprofile=coverage.out
