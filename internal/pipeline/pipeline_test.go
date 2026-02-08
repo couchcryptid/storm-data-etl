@@ -143,7 +143,7 @@ func TestPipeline_Run_CommitsAfterLoad(t *testing.T) {
 }
 
 func TestStormTransformer_Transform(t *testing.T) {
-	raw := makeRawEvent(t, "evt-3", "torn")
+	raw := makeRawEvent(t, "evt-3", "tornado")
 
 	tfm := pipeline.NewTransformer()
 	out, err := tfm.Transform(context.Background(), raw)
@@ -194,7 +194,7 @@ func TestDomain_EnrichStormEvent_NormalizesFields(t *testing.T) {
 	assert.Equal(t, "2024-04-26T15:00:00Z", hail.TimeBucket)
 
 	tornado := domain.EnrichStormEvent(domain.StormEvent{
-		EventType: "torn",
+		EventType: "tornado",
 		Magnitude: 2,
 	})
 	assert.Equal(t, "tornado", tornado.EventType)

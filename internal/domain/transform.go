@@ -43,17 +43,11 @@ func EnrichStormEvent(event StormEvent) StormEvent {
 
 // normalizeEventType validates and normalizes the event type metadata added by the upstream service.
 // Event type is not part of the original CSV data; it's added when converting CSV to JSON.
-// Accepts: "hail", "wind", "tornado", "torn" (converts to "tornado")
+// Accepts: "hail", "wind", "tornado" (exact matches only)
 func normalizeEventType(value string) string {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "hail":
-		return "hail"
-	case "wind":
-		return "wind"
-	case "tornado":
-		return "tornado"
-	case "torn":
-		return "tornado"
+	switch value {
+	case "hail", "wind", "tornado":
+		return value
 	default:
 		return ""
 	}

@@ -59,7 +59,7 @@ func TestKafkaPipeline_Integration(t *testing.T) {
 	begin := time.Date(2024, time.April, 26, 12, 23, 0, 0, time.UTC)
 	input := domain.StormEvent{
 		ID:        "it-1",
-		EventType: "torn",
+		EventType: "tornado",
 		Geo:       domain.Geo{Lat: 34.96, Lon: -95.77},
 		Magnitude: 2,
 		Unit:      "f_scale",
