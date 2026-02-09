@@ -16,6 +16,7 @@ const (
 	testLocationNW = "5.2 NW AUSTIN"
 	testTimeBucket = "2024-04-26T15:00:00Z"
 	testUnknown    = "unknown type"
+	testEmptyStr   = "empty string"
 )
 
 func TestParseRawEvent(t *testing.T) {
@@ -115,7 +116,7 @@ func TestParseHHMM(t *testing.T) {
 		{"four digits", "1510", time.Date(2024, 4, 26, 15, 10, 0, 0, time.UTC)},
 		{"three digits", "930", time.Date(2024, 4, 26, 9, 30, 0, 0, time.UTC)},
 		{"midnight", "0000", time.Date(2024, 4, 26, 0, 0, 0, 0, time.UTC)},
-		{"empty string", "", baseDate},
+		{testEmptyStr, "", baseDate},
 		{"too short", "12", baseDate},
 		{"invalid hour", "2510", baseDate},
 		{"invalid minute", "1299", baseDate},
@@ -257,7 +258,7 @@ func TestNormalizeEventType(t *testing.T) {
 		{"uppercase wind rejected", "WIND", ""},
 		{"uppercase tornado rejected", "TORNADO", ""},
 		{testUnknown, "snow", ""},
-		{"empty string", "", ""},
+		{testEmptyStr, "", ""},
 	}
 
 	for _, tt := range tests {
@@ -407,7 +408,7 @@ func TestParseLocation(t *testing.T) {
 		{"no match - missing direction", "5 AUSTIN", "5 AUSTIN", 0, ""},
 		{"no match - missing distance", "N AUSTIN", "N AUSTIN", 0, ""},
 		{"no match - just city", "AUSTIN", "AUSTIN", 0, ""},
-		{"empty string", "", "", 0, ""},
+		{testEmptyStr, "", "", 0, ""},
 		{"spaces only", "   ", "", 0, ""},
 		{"malformed distance", "abc N AUSTIN", "abc N AUSTIN", 0, ""},
 	}

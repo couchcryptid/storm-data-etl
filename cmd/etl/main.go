@@ -9,7 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	httpadapter "github.com/couchcryptid/storm-data-etl-service/internal/adapter/http"
+	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/httpadapter"
 	kafkaadapter "github.com/couchcryptid/storm-data-etl-service/internal/adapter/kafka"
 	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/mapbox"
 	"github.com/couchcryptid/storm-data-etl-service/internal/config"

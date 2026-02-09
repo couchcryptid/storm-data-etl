@@ -1,4 +1,4 @@
-package http_test
+package httpadapter_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	httpadapter "github.com/couchcryptid/storm-data-etl-service/internal/adapter/http"
+	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/httpadapter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

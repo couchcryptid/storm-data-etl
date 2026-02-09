@@ -12,7 +12,7 @@ test-unit:
 	go test ./... -v -race -count=1
 
 test-integration:
-	go test ./internal/integration -v -tags=integration
+	go test ./internal/integration -v -race -count=1 -tags=integration
 
 test-cover:
 	go test ./... -coverprofile=coverage.out

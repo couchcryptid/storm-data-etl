@@ -5,194 +5,338 @@ package integration_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/kafka"
+	"github.com/couchcryptid/storm-data-etl-service/internal/config"
 	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
+	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
+	"github.com/couchcryptid/storm-data-etl-service/internal/pipeline"
 	kafkago "github.com/segmentio/kafka-go"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/testcontainers/testcontainers-go/modules/compose"
-	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func TestKafkaPipeline_Integration(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
+const (
+	testSourceTopic = "test-source"
+	testSinkTopic   = "test-sink"
+)
 
-	stack, err := compose.NewDockerComposeWith(compose.WithStackFiles(filepath.Join("..", "..", "compose.yml")))
-	require.NoError(t, err)
-
-	err = stack.
-		WaitForService("storm-data-etl", wait.ForListeningPort("8080/tcp")).
-		Up(ctx, compose.Wait(true))
-	require.NoError(t, err)
-	defer func() {
-		_ = stack.Down(context.Background(), compose.RemoveOrphans(true), compose.RemoveVolumes(true))
-	}()
-
-	brokers := []string{"localhost:9092"}
-	require.NoError(t, waitForKafka(ctx, brokers[0]))
-
-	sourceTopic := "raw-weather-reports"
-	sinkTopic := "transformed-weather-data"
-	require.NoError(t, ensureTopics(brokers[0], sourceTopic, sinkTopic))
-
-	reader := newSinkReader(brokers, sinkTopic)
-	defer func() {
-		_ = reader.Close()
-	}()
-
-	writer := &kafkago.Writer{
-		Addr:     kafkago.TCP(brokers...),
-		Topic:    sourceTopic,
-		Balancer: &kafkago.LeastBytes{},
-	}
-	defer func() {
-		_ = writer.Close()
-	}()
-
-	begin := time.Date(2024, time.April, 26, 12, 23, 0, 0, time.UTC)
-	input := domain.StormEvent{
-		ID:        "it-1",
-		EventType: "tornado",
-		Geo:       domain.Geo{Lat: 34.96, Lon: -95.77},
-		Magnitude: 2,
-		Unit:      "f_scale",
-		BeginTime: begin,
-		EndTime:   begin,
-		Source:    "integration",
-		Location: domain.Location{
-			Raw:    "2 N Mcalester",
-			State:  "OK",
-			County: "Pittsburg",
-		},
-		Comments: "Test tornado report. (TSA)",
-	}
-	payload, err := json.Marshal(input)
-	require.NoError(t, err)
-
-	require.NoError(t, writer.WriteMessages(ctx, kafkago.Message{
-		Key:   []byte(input.ID),
-		Value: payload,
-	}))
-
-	received, err := readTransformed(ctx, reader)
-	require.NoError(t, err)
-	require.Equal(t, input.ID, received.Key)
-	require.Equal(t, "tornado", received.Headers["type"])
-	require.Contains(t, received.Headers, "processed_at")
-	_, err = time.Parse(time.RFC3339, received.Headers["processed_at"])
-	require.NoError(t, err)
-	require.Equal(t, "tornado", received.Event.EventType)
-	require.Equal(t, "OK", received.Event.Location.State)
-	require.Equal(t, "Pittsburg", received.Event.Location.County)
-	require.Equal(t, "Mcalester", received.Event.Location.Name)
-	require.Equal(t, "TSA", received.Event.SourceOffice)
-	require.Equal(t, "2024-04-26T12:00:00Z", received.Event.TimeBucket)
-}
-
-func waitForKafka(ctx context.Context, address string) error {
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		deadline = time.Now().Add(30 * time.Second)
-	}
-
-	for time.Now().Before(deadline) {
-		dialer := &net.Dialer{Timeout: 2 * time.Second}
-		conn, err := dialer.DialContext(ctx, "tcp", address)
-		if err == nil {
-			_ = conn.Close()
-			return nil
-		}
-		time.Sleep(500 * time.Millisecond)
-	}
-
-	return errors.New("kafka broker not reachable before timeout")
-}
-
-func newSinkReader(brokers []string, topic string) *kafkago.Reader {
-	return kafkago.NewReader(kafkago.ReaderConfig{
-		Brokers:     brokers,
-		Topic:       topic,
-		GroupID:     fmt.Sprintf("integration-test-%d", time.Now().UnixNano()),
-		StartOffset: kafkago.LastOffset,
-	})
-}
-
-func ensureTopics(broker string, topics ...string) error {
-	conn, err := kafkago.Dial("tcp", broker)
-	if err != nil {
-		return fmt.Errorf("dial broker: %w", err)
-	}
-	defer func() {
-		_ = conn.Close()
-	}()
-
-	controller, err := conn.Controller()
-	if err != nil {
-		return fmt.Errorf("get controller: %w", err)
-	}
-
-	controllerConn, err := kafkago.Dial("tcp", net.JoinHostPort(controller.Host, fmt.Sprintf("%d", controller.Port)))
-	if err != nil {
-		return fmt.Errorf("dial controller: %w", err)
-	}
-	defer func() {
-		_ = controllerConn.Close()
-	}()
-
-	configs := make([]kafkago.TopicConfig, 0, len(topics))
-	for _, topic := range topics {
-		configs = append(configs, kafkago.TopicConfig{
-			Topic:             topic,
-			NumPartitions:     1,
-			ReplicationFactor: 1,
-		})
-	}
-
-	if err := controllerConn.CreateTopics(configs...); err != nil {
-		if strings.Contains(err.Error(), "already exists") {
-			return nil
-		}
-		return fmt.Errorf("create topics: %w", err)
-	}
-
-	return nil
-}
-
+// transformedMessage holds a deserialized message read from the sink topic.
 type transformedMessage struct {
 	Event   domain.StormEvent
 	Key     string
 	Headers map[string]string
 }
 
-func readTransformed(ctx context.Context, reader *kafkago.Reader) (transformedMessage, error) {
-	readCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+// readTransformed reads a single message from the sink consumer and deserializes it.
+func readTransformed(ctx context.Context, t *testing.T, consumer *kafkago.Reader) transformedMessage {
+	t.Helper()
+	readCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	msg, err := reader.ReadMessage(readCtx)
-	if err != nil {
-		return transformedMessage{}, fmt.Errorf("read transformed: %w", err)
-	}
+	msg, err := consumer.ReadMessage(readCtx)
+	require.NoError(t, err, "read from sink topic")
 
 	headers := make(map[string]string, len(msg.Headers))
 	for _, h := range msg.Headers {
 		headers[h.Key] = string(h.Value)
 	}
-
 	var event domain.StormEvent
-	if err := json.Unmarshal(msg.Value, &event); err != nil {
-		return transformedMessage{}, fmt.Errorf("unmarshal transformed: %w", err)
-	}
+	require.NoError(t, json.Unmarshal(msg.Value, &event), "unmarshal sink message")
 
 	return transformedMessage{
 		Event:   event,
 		Key:     string(msg.Key),
 		Headers: headers,
-	}, nil
+	}
+}
+
+// TestKafkaReaderWriter verifies the adapter layer: kafka.Reader (Extractor) and
+// kafka.Writer (Loader) correctly round-trip a message through Kafka.
+func TestKafkaReaderWriter(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	broker := startKafka(ctx, t)
+
+	createTopic(t, broker, testSourceTopic)
+	createTopic(t, broker, testSinkTopic)
+
+	cfg := &config.Config{
+		KafkaBrokers:     []string{broker},
+		KafkaSourceTopic: testSourceTopic,
+		KafkaSinkTopic:   testSinkTopic,
+		KafkaGroupID:     fmt.Sprintf("test-reader-%d", time.Now().UnixNano()),
+	}
+
+	// Publish a raw CSV record to the source topic.
+	records := loadMockData(t)
+	record := records[0] // first hail record: 8 ESE Chappel, TX
+	payload, err := json.Marshal(record)
+	require.NoError(t, err)
+
+	baseDate := time.Date(2024, time.April, 26, 0, 0, 0, 0, time.UTC)
+	producer := &kafkago.Writer{
+		Addr:  kafkago.TCP(broker),
+		Topic: testSourceTopic,
+	}
+	t.Cleanup(func() { _ = producer.Close() })
+
+	require.NoError(t, producer.WriteMessages(ctx, kafkago.Message{
+		Key:   []byte("test-key"),
+		Value: payload,
+		Time:  baseDate,
+	}))
+
+	// Extract via kafka.Reader.
+	reader := kafka.NewReader(cfg, discardLogger())
+	t.Cleanup(func() { _ = reader.Close() })
+
+	raw, err := reader.Extract(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []byte("test-key"), raw.Key)
+	assert.Equal(t, payload, raw.Value)
+	assert.Equal(t, testSourceTopic, raw.Topic)
+	require.NotNil(t, raw.Commit, "commit callback should be set")
+
+	// Commit the offset.
+	require.NoError(t, raw.Commit(ctx))
+
+	// Transform the raw event into an output event.
+	transformer := pipeline.NewTransformer(nil, discardLogger())
+	out, err := transformer.Transform(ctx, raw)
+	require.NoError(t, err)
+
+	// Load via kafka.Writer.
+	writer := kafka.NewWriter(cfg, discardLogger())
+	t.Cleanup(func() { _ = writer.Close() })
+
+	require.NoError(t, writer.Load(ctx, out))
+
+	// Read from the sink topic and verify headers + value.
+	consumer := kafkago.NewReader(kafkago.ReaderConfig{
+		Brokers:     []string{broker},
+		Topic:       testSinkTopic,
+		GroupID:     fmt.Sprintf("test-consumer-%d", time.Now().UnixNano()),
+		StartOffset: kafkago.FirstOffset,
+	})
+	t.Cleanup(func() { _ = consumer.Close() })
+
+	tm := readTransformed(ctx, t, consumer)
+	assert.Equal(t, "hail", tm.Headers["type"])
+	assert.Contains(t, tm.Headers, "processed_at")
+	_, err = time.Parse(time.RFC3339, tm.Headers["processed_at"])
+	assert.NoError(t, err, "processed_at should be valid RFC3339")
+
+	assert.Equal(t, "hail", tm.Event.EventType)
+	assert.Equal(t, "TX", tm.Event.Location.State)
+	assert.Equal(t, "San Saba", tm.Event.Location.County)
+	assert.Equal(t, "Chappel", tm.Event.Location.Name)
+	assert.Equal(t, 1.25, tm.Event.Magnitude)
+}
+
+// TestPipelineEndToEnd wires the full pipeline (Reader → Transformer → Writer) with
+// real Kafka and verifies that all mock CSV records are correctly enriched.
+func TestPipelineEndToEnd(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	broker := startKafka(ctx, t)
+
+	createTopic(t, broker, testSourceTopic)
+	createTopic(t, broker, testSinkTopic)
+
+	cfg := &config.Config{
+		KafkaBrokers:     []string{broker},
+		KafkaSourceTopic: testSourceTopic,
+		KafkaSinkTopic:   testSinkTopic,
+		KafkaGroupID:     fmt.Sprintf("test-pipeline-%d", time.Now().UnixNano()),
+	}
+
+	// Publish all mock CSV records to the source topic.
+	records := loadMockData(t)
+	baseDate := time.Date(2024, time.April, 26, 0, 0, 0, 0, time.UTC)
+
+	producer := &kafkago.Writer{
+		Addr:  kafkago.TCP(broker),
+		Topic: testSourceTopic,
+	}
+	t.Cleanup(func() { _ = producer.Close() })
+
+	msgs := make([]kafkago.Message, 0, len(records))
+	for i, rec := range records {
+		payload, err := json.Marshal(rec)
+		require.NoError(t, err)
+		msgs = append(msgs, kafkago.Message{
+			Key:   []byte(fmt.Sprintf("record-%d", i)),
+			Value: payload,
+			Time:  baseDate,
+		})
+	}
+	require.NoError(t, producer.WriteMessages(ctx, msgs...))
+
+	// Wire up the pipeline.
+	reader := kafka.NewReader(cfg, discardLogger())
+	t.Cleanup(func() { _ = reader.Close() })
+
+	transformer := pipeline.NewTransformer(nil, discardLogger())
+
+	writer := kafka.NewWriter(cfg, discardLogger())
+	t.Cleanup(func() { _ = writer.Close() })
+
+	metrics := observability.NewMetricsForTesting()
+	p := pipeline.New(reader, transformer, writer, discardLogger(), metrics)
+
+	// Run the pipeline in a goroutine.
+	pipelineCtx, pipelineCancel := context.WithCancel(ctx)
+	errCh := make(chan error, 1)
+	go func() { errCh <- p.Run(pipelineCtx) }()
+
+	// Read all enriched messages from the sink topic.
+	consumer := kafkago.NewReader(kafkago.ReaderConfig{
+		Brokers:     []string{broker},
+		Topic:       testSinkTopic,
+		GroupID:     fmt.Sprintf("test-sink-%d", time.Now().UnixNano()),
+		StartOffset: kafkago.FirstOffset,
+	})
+	t.Cleanup(func() { _ = consumer.Close() })
+
+	received := make([]transformedMessage, 0, len(records))
+	for len(received) < len(records) {
+		tm := readTransformed(ctx, t, consumer)
+		received = append(received, tm)
+	}
+
+	pipelineCancel()
+	require.NoError(t, <-errCh)
+
+	// Validate counts by event type.
+	require.Len(t, received, len(records))
+	typeCounts := map[string]int{}
+	for _, tm := range received {
+		typeCounts[tm.Event.EventType]++
+
+		// Every message must have type and processed_at headers.
+		assert.NotEmpty(t, tm.Headers["type"], "missing type header")
+		assert.Contains(t, tm.Headers, "processed_at", "missing processed_at header")
+		_, err := time.Parse(time.RFC3339, tm.Headers["processed_at"])
+		assert.NoError(t, err, "invalid processed_at format")
+
+		// All events should have a time bucket.
+		assert.NotEmpty(t, tm.Event.TimeBucket, "missing time_bucket")
+	}
+
+	assert.Equal(t, 10, typeCounts["hail"], "hail count")
+	assert.Equal(t, 10, typeCounts["tornado"], "tornado count")
+
+	// Spot-check a known record: first hail (8 ESE Chappel, San Saba TX).
+	var foundHail bool
+	for _, tm := range received {
+		if tm.Event.Location.State != "TX" || tm.Event.Location.County != "San Saba" {
+			continue
+		}
+		foundHail = true
+		assert.Equal(t, "hail", tm.Event.EventType)
+		assert.Equal(t, "Chappel", tm.Event.Location.Name)
+		assert.Equal(t, "ESE", tm.Event.Location.Direction)
+		assert.Equal(t, 8.0, tm.Event.Location.Distance)
+		assert.Equal(t, "SJT", tm.Event.SourceOffice)
+		assert.Equal(t, "moderate", tm.Event.Severity)
+		assert.Equal(t, 1.25, tm.Event.Magnitude)
+		assert.Equal(t, "2024-04-26T15:00:00Z", tm.Event.TimeBucket)
+		break
+	}
+	assert.True(t, foundHail, "expected to find San Saba TX hail record")
+
+	// Spot-check a tornado record: 2 N Mcalester, Pittsburg OK.
+	var foundTornado bool
+	for _, tm := range received {
+		if tm.Event.Location.State != "OK" || tm.Event.Location.County != "Pittsburg" || tm.Event.EventType != "tornado" {
+			continue
+		}
+		foundTornado = true
+		assert.Equal(t, "Mcalester", tm.Event.Location.Name)
+		assert.Equal(t, "TSA", tm.Event.SourceOffice)
+		assert.Equal(t, "2024-04-26T12:00:00Z", tm.Event.TimeBucket)
+		break
+	}
+	assert.True(t, foundTornado, "expected to find Pittsburg OK tornado record")
+}
+
+// TestPipelineTransformError verifies that an invalid message (poison pill) is
+// skipped and the pipeline continues processing valid messages.
+func TestPipelineTransformError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+
+	broker := startKafka(ctx, t)
+
+	createTopic(t, broker, testSourceTopic)
+	createTopic(t, broker, testSinkTopic)
+
+	cfg := &config.Config{
+		KafkaBrokers:     []string{broker},
+		KafkaSourceTopic: testSourceTopic,
+		KafkaSinkTopic:   testSinkTopic,
+		KafkaGroupID:     fmt.Sprintf("test-poison-%d", time.Now().UnixNano()),
+	}
+
+	baseDate := time.Date(2024, time.April, 26, 0, 0, 0, 0, time.UTC)
+
+	// Publish: invalid JSON, then a valid CSV record.
+	records := loadMockData(t)
+	validPayload, err := json.Marshal(records[0])
+	require.NoError(t, err)
+
+	producer := &kafkago.Writer{
+		Addr:  kafkago.TCP(broker),
+		Topic: testSourceTopic,
+	}
+	t.Cleanup(func() { _ = producer.Close() })
+
+	require.NoError(t, producer.WriteMessages(ctx,
+		kafkago.Message{Key: []byte("bad"), Value: []byte("not-json{{{"), Time: baseDate},
+		kafkago.Message{Key: []byte("good"), Value: validPayload, Time: baseDate},
+	))
+
+	// Wire up the pipeline.
+	reader := kafka.NewReader(cfg, discardLogger())
+	t.Cleanup(func() { _ = reader.Close() })
+
+	transformer := pipeline.NewTransformer(nil, discardLogger())
+
+	writer := kafka.NewWriter(cfg, discardLogger())
+	t.Cleanup(func() { _ = writer.Close() })
+
+	metrics := observability.NewMetricsForTesting()
+	p := pipeline.New(reader, transformer, writer, discardLogger(), metrics)
+
+	pipelineCtx, pipelineCancel := context.WithCancel(ctx)
+	errCh := make(chan error, 1)
+	go func() { errCh <- p.Run(pipelineCtx) }()
+
+	// Only the valid message should appear on the sink topic.
+	consumer := kafkago.NewReader(kafkago.ReaderConfig{
+		Brokers:     []string{broker},
+		Topic:       testSinkTopic,
+		GroupID:     fmt.Sprintf("test-sink-%d", time.Now().UnixNano()),
+		StartOffset: kafkago.FirstOffset,
+	})
+	t.Cleanup(func() { _ = consumer.Close() })
+
+	tm := readTransformed(ctx, t, consumer)
+	assert.Equal(t, "hail", tm.Event.EventType)
+	assert.Equal(t, "TX", tm.Event.Location.State)
+
+	// Verify no second message arrives (the poison pill was skipped).
+	readCtx, readCancel := context.WithTimeout(ctx, 5*time.Second)
+	_, err = consumer.ReadMessage(readCtx)
+	readCancel()
+	assert.Error(t, err, "expected no second message on sink topic")
+
+	pipelineCancel()
+	require.NoError(t, <-errCh)
 }
