@@ -8,11 +8,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	defaultBroker   = "localhost:9092"
+	testMapboxToken = "pk.test-token"
+)
+
 func TestLoad_Defaults(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"localhost:9092"}, cfg.KafkaBrokers)
+	assert.Equal(t, []string{defaultBroker}, cfg.KafkaBrokers)
 	assert.Equal(t, "raw-weather-reports", cfg.KafkaSourceTopic)
 	assert.Equal(t, "transformed-weather-data", cfg.KafkaSinkTopic)
 	assert.Equal(t, "storm-data-etl", cfg.KafkaGroupID)
@@ -35,7 +40,7 @@ func TestLoad_CustomEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("LOG_FORMAT", "text")
 	t.Setenv("SHUTDOWN_TIMEOUT", "30s")
-	t.Setenv("MAPBOX_TOKEN", "pk.test-token")
+	t.Setenv("MAPBOX_TOKEN", testMapboxToken)
 	t.Setenv("MAPBOX_TIMEOUT", "10s")
 	t.Setenv("MAPBOX_CACHE_SIZE", "500")
 
@@ -51,7 +56,7 @@ func TestLoad_CustomEnv(t *testing.T) {
 	assert.Equal(t, "text", cfg.LogFormat)
 	assert.Equal(t, 30*time.Second, cfg.ShutdownTimeout)
 	assert.True(t, cfg.MapboxEnabled)
-	assert.Equal(t, "pk.test-token", cfg.MapboxToken)
+	assert.Equal(t, testMapboxToken, cfg.MapboxToken)
 	assert.Equal(t, 10*time.Second, cfg.MapboxTimeout)
 	assert.Equal(t, 500, cfg.MapboxCacheSize)
 }
@@ -85,14 +90,14 @@ func TestLoad_MapboxEnabledWithoutToken(t *testing.T) {
 }
 
 func TestLoad_MapboxTokenImpliesEnabled(t *testing.T) {
-	t.Setenv("MAPBOX_TOKEN", "pk.test-token")
+	t.Setenv("MAPBOX_TOKEN", testMapboxToken)
 	cfg, err := Load()
 	require.NoError(t, err)
 	assert.True(t, cfg.MapboxEnabled)
 }
 
 func TestLoad_MapboxExplicitlyDisabled(t *testing.T) {
-	t.Setenv("MAPBOX_TOKEN", "pk.test-token")
+	t.Setenv("MAPBOX_TOKEN", testMapboxToken)
 	t.Setenv("MAPBOX_ENABLED", "false")
 	cfg, err := Load()
 	require.NoError(t, err)
@@ -105,7 +110,7 @@ func TestParseBrokers(t *testing.T) {
 		input string
 		want  []string
 	}{
-		{"single broker", "localhost:9092", []string{"localhost:9092"}},
+		{"single broker", defaultBroker, []string{defaultBroker}},
 		{"multiple brokers", "a:1,b:2", []string{"a:1", "b:2"}},
 		{"trims whitespace", " a , , b ", []string{"a", "b"}},
 		{"empty string", "", []string{}},
