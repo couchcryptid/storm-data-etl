@@ -1,6 +1,6 @@
 # Storm Data ETL Service
 
-A Go service that consumes raw weather storm reports from Kafka, enriches and normalizes the data, and produces transformed events to a downstream Kafka topic. Built for the HailTrace platform.
+A Go service that consumes raw weather storm reports from Kafka, enriches and normalizes the data, and produces transformed events to a downstream Kafka topic. Part of the storm data pipeline.
 
 ## Pages
 
