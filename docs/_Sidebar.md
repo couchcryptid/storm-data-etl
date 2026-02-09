@@ -2,7 +2,8 @@
 
 - [[Home]]
 - [[Architecture]]
-- [[Enrichment Rules|Enrichment]]
+- [[Configuration]]
 - [[Deployment]]
 - [[Development]]
+- [[Enrichment Rules|Enrichment]]
 - [[Performance]]

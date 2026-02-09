@@ -12,7 +12,7 @@ The service runs a continuous ETL loop:
 
 Supported event types: **hail**, **wind**, and **tornado**.
 
-## Quickstart
+## Quick Start
 
 ### Prerequisites
 
@@ -26,7 +26,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-This starts Zookeeper, Kafka, and the ETL service. The service begins consuming from the `raw-weather-reports` topic and producing to `transformed-weather-data`.
+This starts Kafka and the ETL service. The service begins consuming from the `raw-weather-reports` topic and producing to `transformed-weather-data`.
 
 ### Run without Docker
 
@@ -67,30 +67,30 @@ All configuration is via environment variables (loaded from `.env` in Docker Com
 
 ## Prometheus Metrics
 
-| Metric                            | Type         | Labels                          | Description                                     |
-| --------------------------------- | ------------ | ------------------------------- | ----------------------------------------------- |
-| `etl_messages_consumed_total`     | Counter      | --                              | Messages read from the source topic             |
-| `etl_messages_produced_total`     | Counter      | --                              | Messages written to the sink topic              |
-| `etl_transform_errors_total`      | Counter      | --                              | Transformation failures (malformed input)       |
-| `etl_processing_duration_seconds` | Histogram    | --                              | Duration of each extract-transform-load cycle   |
-| `etl_pipeline_running`            | Gauge        | --                              | `1` when the pipeline loop is active            |
-| `etl_geocode_requests_total`      | Counter      | `method`, `outcome`             | Geocoding API requests (forward/reverse, success/error/empty) |
-| `etl_geocode_cache_total`         | Counter      | `method`, `result`              | Geocoding cache lookups (forward/reverse, hit/miss) |
-| `etl_geocode_api_duration_seconds`| Histogram    | `method`                        | Mapbox API request duration                     |
-| `etl_geocode_enabled`             | Gauge        | --                              | `1` when geocoding enrichment is active         |
+| Metric                              | Type      | Labels              | Description                                 |
+| ----------------------------------- | --------- | ------------------- | ------------------------------------------- |
+| `etl_messages_consumed_total`       | Counter   | --                  | Messages read from the source topic         |
+| `etl_messages_produced_total`       | Counter   | --                  | Messages written to the sink topic          |
+| `etl_transform_errors_total`        | Counter   | --                  | Transformation failures (malformed input)   |
+| `etl_processing_duration_seconds`   | Histogram | --                  | Duration of each extract-transform-load cycle |
+| `etl_pipeline_running`              | Gauge     | --                  | `1` when the pipeline loop is active        |
+| `etl_geocode_requests_total`        | Counter   | `method`, `outcome` | Geocoding API requests (forward/reverse, success/error/empty) |
+| `etl_geocode_cache_total`           | Counter   | `method`, `result`  | Geocoding cache lookups (forward/reverse, hit/miss) |
+| `etl_geocode_api_duration_seconds`  | Histogram | `method`            | Mapbox API request duration                 |
+| `etl_geocode_enabled`               | Gauge     | --                  | `1` when geocoding enrichment is active     |
 
-## Make Targets
+## Development
 
 ```
-make build        # Build binary to bin/etl
-make run          # Run with go run
-make test         # Run unit + integration tests
-make test-unit    # Run unit tests with race detector
+make build            # Build binary to bin/etl
+make run              # Run with go run
+make test             # Run unit + integration tests
+make test-unit        # Run unit tests with race detector
 make test-integration # Run integration tests (Docker required)
-make test-cover   # Run tests and open HTML coverage report
-make lint         # Run golangci-lint
-make fmt          # Format code with gofmt and goimports
-make clean        # Remove build artifacts
+make test-cover       # Run tests and open HTML coverage report
+make lint             # Run golangci-lint
+make fmt              # Format code with gofmt and goimports
+make clean            # Remove build artifacts
 ```
 
 Integration tests require Docker because they use a Kafka container.
@@ -110,7 +110,6 @@ internal/
   observability/            Structured logging and Prometheus metrics
   pipeline/                 ETL orchestration (extract, transform, load)
 data/mock/                  Sample storm report JSON for testing
-docs/                       Wiki source (synced to GitHub Wiki)
 ```
 
 ## Documentation
@@ -118,7 +117,8 @@ docs/                       Wiki source (synced to GitHub Wiki)
 See the [project wiki](../../wiki) for detailed documentation:
 
 - [Architecture](../../wiki/Architecture) -- System design and data flow
-- [Enrichment Rules](../../wiki/Enrichment) -- Transformation and severity classification logic
+- [Configuration](../../wiki/Configuration) -- Environment variables and validation
 - [Deployment](../../wiki/Deployment) -- Docker Compose and production deployment
 - [Development](../../wiki/Development) -- Developer workflow, testing, and CI
+- [Enrichment Rules](../../wiki/Enrichment) -- Transformation and severity classification logic
 - [Performance](../../wiki/Performance) -- Theoretical throughput, scaling, and bottleneck analysis
