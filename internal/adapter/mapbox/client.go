@@ -47,7 +47,7 @@ func (c *Client) ForwardGeocode(ctx context.Context, name, state string) (domain
 	params := url.Values{
 		"access_token": {c.token},
 		"limit":        {"1"},
-		"types":        {"place,locality"},
+		"types":        {"place,locality"}, // restrict to populated places (excludes roads, waterways, etc.)
 	}
 
 	return c.doRequest(ctx, u+"?"+params.Encode(), "forward")

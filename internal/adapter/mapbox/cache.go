@@ -60,7 +60,13 @@ func (c *CachedGeocoder) ReverseGeocode(ctx context.Context, lat, lon float64) (
 	return result, nil
 }
 
-// lruCache is a simple thread-safe LRU cache for GeocodingResults.
+// lruCache is a simple thread-safe LRU (Least Recently Used) cache for
+// GeocodingResults. Implemented as a doubly-linked list + hashmap:
+//   - Map provides O(1) key lookup
+//   - List maintains recency order for O(1) move-to-front and tail eviction
+//   - head = most recently used, tail = least recently used
+//
+// When the cache exceeds maxEntries, the tail (least recently used) entry is evicted.
 type lruCache struct {
 	maxEntries int
 	mu         sync.Mutex

@@ -113,6 +113,8 @@ func parseHHMM(baseDate time.Time, hhmm string) time.Time {
 }
 
 // generateID produces a deterministic ID from the event's key fields.
+// Deterministic IDs enable idempotent upserts (ON CONFLICT DO NOTHING) and
+// replay safety — reprocessing the same raw event produces the same ID.
 func generateID(eventType, state string, lat, lon float64, timeStr string) string {
 	input := fmt.Sprintf("%s|%s|%.4f|%.4f|%s", eventType, state, lat, lon, timeStr)
 	hash := sha256.Sum256([]byte(input))
@@ -176,7 +178,9 @@ func normalizeUnit(eventType, unit string) string {
 
 // normalizeMagnitude corrects known encoding issues in upstream data.
 // Some hail reports encode diameter in hundredths of inches (e.g. 175 = 1.75in).
-// Values >= 10 with unit "in" are assumed to use this encoding and are divided by 100.
+// Values >= 10 with unit "in" are assumed to use this encoding and are divided
+// by 100. The threshold of 10 is safe because the largest hail ever recorded in
+// the US was approximately 8 inches (Vivian, SD, 2010).
 func normalizeMagnitude(eventType string, magnitude float64, unit string) float64 {
 	if magnitude == 0 {
 		return magnitude
@@ -187,11 +191,13 @@ func normalizeMagnitude(eventType string, magnitude float64, unit string) float6
 	return magnitude
 }
 
-// deriveSeverity maps magnitude to a severity label based on NWS thresholds:
+// deriveSeverity maps magnitude to a severity label based on operational thresholds
+// informed by NWS Severe Weather Criteria and the Enhanced Fujita Scale:
 //   - hail: <0.75in minor, <1.5in moderate, <2.5in severe, else extreme
-//   - wind: <50mph minor, <74mph moderate (tropical storm), <96mph severe, else extreme
+//   - wind: <50mph minor, <74mph moderate (tropical storm threshold), <96mph severe (hurricane Cat 2), else extreme
 //   - tornado: EF0-1 minor, EF2 moderate, EF3-4 severe, EF5 extreme
 //
+// The four-level scale is a project-specific simplification for user-facing queries.
 // Returns nil when magnitude is 0 or the event type is unrecognized.
 func deriveSeverity(eventType string, magnitude float64) *string {
 	if magnitude == 0 {

@@ -13,6 +13,8 @@ func EnrichWithGeocoding(ctx context.Context, event StormEvent, geocoder Geocode
 		return event
 	}
 
+	// Zero coordinates indicate missing data, not the (0,0) "null island" point
+	// in the Gulf of Guinea — US storm events never occur there.
 	hasCoords := event.Geo.Lat != 0 || event.Geo.Lon != 0
 	hasName := event.Location.Name != "" && event.Location.State != ""
 
