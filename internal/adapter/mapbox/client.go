@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
-	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/observability"
 )
 
 // Client implements domain.Geocoder using the Mapbox Geocoding API.

@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/config"
+	"github.com/couchcryptid/storm-data-etl/internal/config"
 )
 
 // NewLogger creates a structured logger based on config and sets it as the default.

@@ -4,6 +4,6 @@
   },
   "sonarlint.connectedMode.project": {
     "connectionId": "couchcryptid",
-    "projectKey": "couchcryptid_storm-data-etl-service"
+    "projectKey": "couchcryptid_storm-data-etl"
   }
 }

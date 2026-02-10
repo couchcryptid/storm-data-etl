@@ -1,4 +1,4 @@
-module github.com/couchcryptid/storm-data-etl-service
+module github.com/couchcryptid/storm-data-etl
 
 go 1.25.6
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

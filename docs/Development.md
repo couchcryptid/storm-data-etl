@@ -11,7 +11,7 @@
 
 ```sh
 git clone <repo-url>
-cd storm-data-etl-service
+cd storm-data-etl
 cp .env.example .env
 ```
 

@@ -1,15 +1,33 @@
+# Build artifacts
 bin/
 /etl
-.env
 *.exe
 *.test
 *.out
+
+# Environment
+.env
+
+# OS
 .DS_Store
-vendor/
+
+# IDE
 .idea/
-.venv/
 .vscode/*
 !.vscode/settings.json
+
+# Pre-commit virtual environment
+.venv/
+
+# Vendor (use Go modules)
+vendor/
+
+# Temp (hot reload)
+tmp/
+
+# SonarLint (keep connectedMode tracked)
+.sonarlint/*
+!.sonarlint/connectedMode.json
 
 # CodeGraph (keep config tracked)
 .codegraph/*

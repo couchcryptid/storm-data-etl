@@ -9,7 +9,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/httpadapter"
+	"github.com/couchcryptid/storm-data-etl/internal/adapter/httpadapter"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

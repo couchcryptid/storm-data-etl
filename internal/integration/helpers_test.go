@@ -10,7 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
 	kafkago "github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/require"
 	tcKafka "github.com/testcontainers/testcontainers-go/modules/kafka"

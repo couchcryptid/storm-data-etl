@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
 	kafkago "github.com/segmentio/kafka-go"
 	"github.com/stretchr/testify/assert"
 )

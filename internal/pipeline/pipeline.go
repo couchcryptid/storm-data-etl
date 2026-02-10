@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
-	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/observability"
 )
 
 // Extractor reads a single raw event from the source.

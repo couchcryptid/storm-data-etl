@@ -4,7 +4,7 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
 )
 
 // StormTransformer implements Transformer using domain transform functions

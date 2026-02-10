@@ -9,13 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/httpadapter"
-	kafkaadapter "github.com/couchcryptid/storm-data-etl-service/internal/adapter/kafka"
-	"github.com/couchcryptid/storm-data-etl-service/internal/adapter/mapbox"
-	"github.com/couchcryptid/storm-data-etl-service/internal/config"
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
-	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
-	"github.com/couchcryptid/storm-data-etl-service/internal/pipeline"
+	"github.com/couchcryptid/storm-data-etl/internal/adapter/httpadapter"
+	kafkaadapter "github.com/couchcryptid/storm-data-etl/internal/adapter/kafka"
+	"github.com/couchcryptid/storm-data-etl/internal/adapter/mapbox"
+	"github.com/couchcryptid/storm-data-etl/internal/config"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/observability"
+	"github.com/couchcryptid/storm-data-etl/internal/pipeline"
 )
 
 func main() {

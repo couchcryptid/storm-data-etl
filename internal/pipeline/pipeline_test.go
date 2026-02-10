@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/couchcryptid/storm-data-etl-service/internal/domain"
-	"github.com/couchcryptid/storm-data-etl-service/internal/observability"
-	"github.com/couchcryptid/storm-data-etl-service/internal/pipeline"
+	"github.com/couchcryptid/storm-data-etl/internal/domain"
+	"github.com/couchcryptid/storm-data-etl/internal/observability"
+	"github.com/couchcryptid/storm-data-etl/internal/pipeline"
 	"github.com/google/go-cmp/cmp"
 	"github.com/jonboulle/clockwork"
 	"github.com/stretchr/testify/assert"
