@@ -7,7 +7,7 @@ import (
 
 // EnrichWithGeocoding attempts to enrich an event with geocoding data.
 // If geocoder is nil or geocoding fails, the event is returned with
-// GeoSource set accordingly (graceful degradation).
+// Geocoding.Source set accordingly (graceful degradation).
 func EnrichWithGeocoding(ctx context.Context, event StormEvent, geocoder Geocoder, logger *slog.Logger) StormEvent {
 	if geocoder == nil {
 		return event
@@ -26,19 +26,19 @@ func EnrichWithGeocoding(ctx context.Context, event StormEvent, geocoder Geocode
 				"state", event.Location.State,
 				"error", err,
 			)
-			event.GeoSource = "failed"
+			event.Geocoding.Source = "failed"
 			return event
 		}
 		if result.Lat != 0 || result.Lon != 0 {
 			event.Geo.Lat = result.Lat
 			event.Geo.Lon = result.Lon
-			event.FormattedAddress = result.FormattedAddress
-			event.PlaceName = result.PlaceName
-			event.GeoConfidence = result.Confidence
-			event.GeoSource = "forward"
+			event.Geocoding.FormattedAddress = result.FormattedAddress
+			event.Geocoding.PlaceName = result.PlaceName
+			event.Geocoding.Confidence = result.Confidence
+			event.Geocoding.Source = "forward"
 			return event
 		}
-		event.GeoSource = "original"
+		event.Geocoding.Source = "original"
 		return event
 	}
 
@@ -52,20 +52,20 @@ func EnrichWithGeocoding(ctx context.Context, event StormEvent, geocoder Geocode
 				"lon", event.Geo.Lon,
 				"error", err,
 			)
-			event.GeoSource = "failed"
+			event.Geocoding.Source = "failed"
 			return event
 		}
 		if result.FormattedAddress != "" {
-			event.FormattedAddress = result.FormattedAddress
-			event.PlaceName = result.PlaceName
-			event.GeoConfidence = result.Confidence
-			event.GeoSource = "reverse"
+			event.Geocoding.FormattedAddress = result.FormattedAddress
+			event.Geocoding.PlaceName = result.PlaceName
+			event.Geocoding.Confidence = result.Confidence
+			event.Geocoding.Source = "reverse"
 			return event
 		}
-		event.GeoSource = "original"
+		event.Geocoding.Source = "original"
 		return event
 	}
 
-	event.GeoSource = "original"
+	event.Geocoding.Source = "original"
 	return event
 }

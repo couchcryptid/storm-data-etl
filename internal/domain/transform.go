@@ -35,14 +35,14 @@ func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 	beginTime := parseHHMM(raw.Timestamp, rec.Time)
 
 	return StormEvent{
-		ID:        generateID(rec.Type, rec.State, lat, lon, rec.Time),
-		EventType: rec.Type,
-		Geo:       Geo{Lat: lat, Lon: lon},
-		Magnitude: magnitude,
-		BeginTime: beginTime,
-		EndTime:   beginTime,
-		Location:  Location{Raw: rec.Location, State: rec.State, County: rec.County},
-		Comments:  rec.Comments,
+		ID:          generateID(rec.Type, rec.State, lat, lon, rec.Time),
+		EventType:   rec.Type,
+		Geo:         Geo{Lat: lat, Lon: lon},
+		Measurement: Measurement{Magnitude: magnitude},
+		BeginTime:   beginTime,
+		EndTime:     beginTime,
+		Location:    Location{Raw: rec.Location, State: rec.State, County: rec.County},
+		Comments:    rec.Comments,
 
 		RawPayload: raw.Value,
 	}, nil
@@ -129,9 +129,9 @@ func generateID(eventType, state string, lat, lon float64, timeStr string) strin
 // parses structured location fields, and assigns an hourly time bucket.
 func EnrichStormEvent(event StormEvent) StormEvent {
 	event.EventType = normalizeEventType(event.EventType)
-	event.Unit = normalizeUnit(event.EventType, event.Unit)
-	event.Magnitude = normalizeMagnitude(event.EventType, event.Magnitude, event.Unit)
-	event.Severity = deriveSeverity(event.EventType, event.Magnitude)
+	event.Measurement.Unit = normalizeUnit(event.EventType, event.Measurement.Unit)
+	event.Measurement.Magnitude = normalizeMagnitude(event.EventType, event.Measurement.Magnitude, event.Measurement.Unit)
+	event.Measurement.Severity = deriveSeverity(event.EventType, event.Measurement.Magnitude)
 	event.SourceOffice = extractSourceOffice(event.Comments)
 	locationName, locationDistance, locationDirection := parseLocation(event.Location.Raw)
 	event.Location.Name = locationName
@@ -191,48 +191,52 @@ func normalizeMagnitude(eventType string, magnitude float64, unit string) float6
 //   - hail: <0.75in minor, <1.5in moderate, <2.5in severe, else extreme
 //   - wind: <50mph minor, <74mph moderate (tropical storm), <96mph severe, else extreme
 //   - tornado: EF0-1 minor, EF2 moderate, EF3-4 severe, EF5 extreme
-func deriveSeverity(eventType string, magnitude float64) string {
+//
+// Returns nil when magnitude is 0 or the event type is unrecognized.
+func deriveSeverity(eventType string, magnitude float64) *string {
 	if magnitude == 0 {
-		return ""
+		return nil
 	}
 
+	var s string
 	switch eventType {
 	case "hail":
 		switch {
 		case magnitude < 0.75:
-			return "minor"
+			s = "minor"
 		case magnitude < 1.5:
-			return "moderate"
+			s = "moderate"
 		case magnitude < 2.5:
-			return "severe"
+			s = "severe"
 		default:
-			return "extreme"
+			s = "extreme"
 		}
 	case "wind":
 		switch {
 		case magnitude < 50:
-			return "minor"
+			s = "minor"
 		case magnitude < 74:
-			return "moderate"
+			s = "moderate"
 		case magnitude < 96:
-			return "severe"
+			s = "severe"
 		default:
-			return "extreme"
+			s = "extreme"
 		}
 	case "tornado":
 		switch {
 		case magnitude <= 1:
-			return "minor"
+			s = "minor"
 		case magnitude == 2:
-			return "moderate"
+			s = "moderate"
 		case magnitude <= 4:
-			return "severe"
+			s = "severe"
 		default:
-			return "extreme"
+			s = "extreme"
 		}
 	default:
-		return ""
+		return nil
 	}
+	return &s
 }
 
 // extractSourceOffice pulls the NWS Weather Forecast Office (WFO) code from the
@@ -253,38 +257,39 @@ func extractSourceOffice(comments string) string {
 
 // parseLocation splits an NWS relative location string into (name, distance, direction).
 // Input format: "<miles> <compass> <place>", e.g. "8 ESE Chappel".
-// Returns the raw string as name if parsing fails.
-func parseLocation(location string) (string, float64, string) {
+// Returns the raw string as name with nil distance/direction if parsing fails.
+func parseLocation(location string) (string, *float64, *string) {
 	location = strings.TrimSpace(location)
 	if location == "" {
-		return "", 0, ""
+		return "", nil, nil
 	}
 
 	matches := locationRe.FindStringSubmatch(location)
 	if len(matches) != 4 {
-		return location, 0, ""
+		return location, nil, nil
 	}
 
 	distance, err := parseLocationDistance(matches[1])
 	if err != nil {
-		return location, 0, ""
+		return location, nil, nil
 	}
 
-	return strings.TrimSpace(matches[3]), distance, matches[2]
+	direction := matches[2]
+	return strings.TrimSpace(matches[3]), &distance, &direction
 }
 
 func parseLocationDistance(value string) (float64, error) {
 	return strconv.ParseFloat(value, 64)
 }
 
-// deriveTimeBucket truncates the event's begin time to the hour in UTC,
-// producing a bucket key like "2024-04-26T15:00:00Z" for downstream aggregation.
-func deriveTimeBucket(begin time.Time) string {
+// deriveTimeBucket truncates the event's begin time to the hour in UTC.
+// Returns zero time if begin is zero.
+func deriveTimeBucket(begin time.Time) time.Time {
 	if begin.IsZero() {
-		return ""
+		return time.Time{}
 	}
 
-	return begin.UTC().Truncate(time.Hour).Format(time.RFC3339)
+	return begin.UTC().Truncate(time.Hour)
 }
 
 // SerializeStormEvent marshals a StormEvent into an OutputEvent.

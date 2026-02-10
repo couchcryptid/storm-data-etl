@@ -51,7 +51,7 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 				var roundtrip domain.StormEvent
 				require.NoError(t, json.Unmarshal(out.Value, &roundtrip))
 				assert.Equal(t, tc.eventType, roundtrip.EventType)
-				assert.Equal(t, tc.expectedUnit, roundtrip.Unit)
+				assert.Equal(t, tc.expectedUnit, roundtrip.Measurement.Unit)
 				assert.Equal(t, row["State"], roundtrip.Location.State)
 				assert.Equal(t, row["County"], roundtrip.Location.County)
 				assert.True(t, strings.HasPrefix(roundtrip.ID, tc.eventType+"-"))

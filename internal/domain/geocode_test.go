@@ -45,8 +45,8 @@ func TestEnrichWithGeocoding_NilGeocoder(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, nil, discardLogger())
 
-	assert.Empty(t, result.GeoSource)
-	assert.Empty(t, result.FormattedAddress)
+	assert.Empty(t, result.Geocoding.Source)
+	assert.Empty(t, result.Geocoding.FormattedAddress)
 }
 
 func TestEnrichWithGeocoding_ForwardGeocode(t *testing.T) {
@@ -70,10 +70,10 @@ func TestEnrichWithGeocoding_ForwardGeocode(t *testing.T) {
 
 	assert.Equal(t, 30.2672, result.Geo.Lat)
 	assert.Equal(t, -97.7431, result.Geo.Lon)
-	assert.Equal(t, "Austin, Texas, United States", result.FormattedAddress)
-	assert.Equal(t, "Austin", result.PlaceName)
-	assert.Equal(t, 0.95, result.GeoConfidence)
-	assert.Equal(t, "forward", result.GeoSource)
+	assert.Equal(t, "Austin, Texas, United States", result.Geocoding.FormattedAddress)
+	assert.Equal(t, "Austin", result.Geocoding.PlaceName)
+	assert.Equal(t, 0.95, result.Geocoding.Confidence)
+	assert.Equal(t, "forward", result.Geocoding.Source)
 	assert.Equal(t, 1, geo.forwardCalls)
 	assert.Equal(t, 0, geo.reverseCalls)
 }
@@ -94,10 +94,10 @@ func TestEnrichWithGeocoding_ReverseGeocode(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, "Austin, Travis County, Texas", result.FormattedAddress)
-	assert.Equal(t, "Austin", result.PlaceName)
-	assert.Equal(t, 0.98, result.GeoConfidence)
-	assert.Equal(t, "reverse", result.GeoSource)
+	assert.Equal(t, "Austin, Travis County, Texas", result.Geocoding.FormattedAddress)
+	assert.Equal(t, "Austin", result.Geocoding.PlaceName)
+	assert.Equal(t, 0.98, result.Geocoding.Confidence)
+	assert.Equal(t, "reverse", result.Geocoding.Source)
 	assert.Equal(t, 0, geo.forwardCalls)
 	assert.Equal(t, 1, geo.reverseCalls)
 }
@@ -114,8 +114,8 @@ func TestEnrichWithGeocoding_ForwardError_GracefulDegradation(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, "failed", result.GeoSource)
-	assert.Empty(t, result.FormattedAddress)
+	assert.Equal(t, "failed", result.Geocoding.Source)
+	assert.Empty(t, result.Geocoding.FormattedAddress)
 	assert.Equal(t, float64(0), result.Geo.Lat) // coordinates not set
 }
 
@@ -131,7 +131,7 @@ func TestEnrichWithGeocoding_ReverseError_GracefulDegradation(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, "failed", result.GeoSource)
+	assert.Equal(t, "failed", result.Geocoding.Source)
 	assert.Equal(t, 30.2672, result.Geo.Lat) // original coordinates preserved
 }
 
@@ -142,7 +142,7 @@ func TestEnrichWithGeocoding_NoLocationData(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, "original", result.GeoSource)
+	assert.Equal(t, "original", result.Geocoding.Source)
 	assert.Equal(t, 0, geo.forwardCalls)
 	assert.Equal(t, 0, geo.reverseCalls)
 }
@@ -165,7 +165,7 @@ func TestEnrichWithGeocoding_CoordsPreferred_OverForward(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, "reverse", result.GeoSource)
+	assert.Equal(t, "reverse", result.Geocoding.Source)
 	assert.Equal(t, 0, geo.forwardCalls)
 	assert.Equal(t, 1, geo.reverseCalls)
 }
@@ -182,5 +182,5 @@ func TestEnrichWithGeocoding_ForwardEmptyResult(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, "original", result.GeoSource)
+	assert.Equal(t, "original", result.Geocoding.Source)
 }

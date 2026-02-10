@@ -14,10 +14,14 @@ import (
 const (
 	testEventID    = "evt-123"
 	testLocationNW = "5.2 NW AUSTIN"
-	testTimeBucket = "2024-04-26T15:00:00Z"
 	testUnknown    = "unknown type"
 	testEmptyStr   = "empty string"
 )
+
+var testTimeBucket = time.Date(2024, 4, 26, 15, 0, 0, 0, time.UTC)
+
+func stringPtr(s string) *string    { return &s }
+func float64Ptr(f float64) *float64 { return &f }
 
 func TestParseRawEvent(t *testing.T) {
 	baseDate := time.Date(2024, 4, 26, 0, 0, 0, 0, time.UTC)
@@ -31,7 +35,7 @@ func TestParseRawEvent(t *testing.T) {
 		assert.Equal(t, "hail", result.EventType)
 		assert.Equal(t, 31.02, result.Geo.Lat)
 		assert.Equal(t, -98.44, result.Geo.Lon)
-		assert.Equal(t, 125.0, result.Magnitude)
+		assert.Equal(t, 125.0, result.Measurement.Magnitude)
 		assert.Equal(t, "8 ESE Chappel", result.Location.Raw)
 		assert.Equal(t, "San Saba", result.Location.County)
 		assert.Equal(t, "TX", result.Location.State)
@@ -50,7 +54,7 @@ func TestParseRawEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "tornado", result.EventType)
-		assert.Equal(t, 2.0, result.Magnitude)
+		assert.Equal(t, 2.0, result.Measurement.Magnitude)
 		assert.Equal(t, 34.96, result.Geo.Lat)
 		assert.True(t, strings.HasPrefix(result.ID, "tornado-"))
 	})
@@ -62,7 +66,7 @@ func TestParseRawEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "wind", result.EventType)
-		assert.Equal(t, 65.0, result.Magnitude)
+		assert.Equal(t, 65.0, result.Measurement.Magnitude)
 		assert.True(t, strings.HasPrefix(result.ID, "wind-"))
 	})
 
@@ -72,7 +76,7 @@ func TestParseRawEvent(t *testing.T) {
 		result, err := ParseRawEvent(raw)
 
 		require.NoError(t, err)
-		assert.Equal(t, 0.0, result.Magnitude)
+		assert.Equal(t, 0.0, result.Measurement.Magnitude)
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
@@ -190,55 +194,59 @@ func TestEnrichStormEvent(t *testing.T) {
 
 	t.Run("hail event with location", func(t *testing.T) {
 		event := StormEvent{
-			ID:        "evt-1",
-			EventType: "hail",
-			Magnitude: 175,
-			Unit:      "in",
-			BeginTime: time.Date(2024, 4, 26, 15, 45, 0, 0, time.UTC),
-			Comments:  "Large hail reported (ABC)",
-			Location:  Location{Raw: testLocationNW},
+			ID:          "evt-1",
+			EventType:   "hail",
+			Measurement: Measurement{Magnitude: 175, Unit: "in"},
+			BeginTime:   time.Date(2024, 4, 26, 15, 45, 0, 0, time.UTC),
+			Comments:    "Large hail reported (ABC)",
+			Location:    Location{Raw: testLocationNW},
 		}
 
 		result := EnrichStormEvent(event)
 
 		assert.Equal(t, "hail", result.EventType)
-		assert.Equal(t, "in", result.Unit)
-		assert.Equal(t, 1.75, result.Magnitude) // normalized from 175
-		assert.Equal(t, "severe", result.Severity)
+		assert.Equal(t, "in", result.Measurement.Unit)
+		assert.Equal(t, 1.75, result.Measurement.Magnitude) // normalized from 175
+		require.NotNil(t, result.Measurement.Severity)
+		assert.Equal(t, "severe", *result.Measurement.Severity)
 		assert.Equal(t, "ABC", result.SourceOffice)
 		assert.Equal(t, "AUSTIN", result.Location.Name)
-		assert.Equal(t, 5.2, result.Location.Distance)
-		assert.Equal(t, "NW", result.Location.Direction)
+		require.NotNil(t, result.Location.Distance)
+		assert.Equal(t, 5.2, *result.Location.Distance)
+		require.NotNil(t, result.Location.Direction)
+		assert.Equal(t, "NW", *result.Location.Direction)
 		assert.Equal(t, testTimeBucket, result.TimeBucket)
 		assert.Equal(t, fixedTime, result.ProcessedAt)
 	})
 
 	t.Run("wind event", func(t *testing.T) {
 		event := StormEvent{
-			EventType: "wind",
-			Magnitude: 85,
+			EventType:   "wind",
+			Measurement: Measurement{Magnitude: 85},
 		}
 
 		result := EnrichStormEvent(event)
 
 		assert.Equal(t, "wind", result.EventType)
-		assert.Equal(t, "mph", result.Unit)
-		assert.Equal(t, 85.0, result.Magnitude)
-		assert.Equal(t, "severe", result.Severity)
+		assert.Equal(t, "mph", result.Measurement.Unit)
+		assert.Equal(t, 85.0, result.Measurement.Magnitude)
+		require.NotNil(t, result.Measurement.Severity)
+		assert.Equal(t, "severe", *result.Measurement.Severity)
 	})
 
 	t.Run("tornado event", func(t *testing.T) {
 		event := StormEvent{
-			EventType: "tornado",
-			Magnitude: 3,
+			EventType:   "tornado",
+			Measurement: Measurement{Magnitude: 3},
 		}
 
 		result := EnrichStormEvent(event)
 
 		assert.Equal(t, "tornado", result.EventType)
-		assert.Equal(t, "f_scale", result.Unit)
-		assert.Equal(t, 3.0, result.Magnitude)
-		assert.Equal(t, "severe", result.Severity)
+		assert.Equal(t, "f_scale", result.Measurement.Unit)
+		assert.Equal(t, 3.0, result.Measurement.Magnitude)
+		require.NotNil(t, result.Measurement.Severity)
+		assert.Equal(t, "severe", *result.Measurement.Severity)
 	})
 }
 
@@ -324,37 +332,37 @@ func TestDeriveSeverity(t *testing.T) {
 		name      string
 		eventType string
 		magnitude float64
-		expected  string
+		expected  *string
 	}{
 		// Hail
-		{"hail minor", "hail", 0.5, "minor"},
-		{"hail moderate", "hail", 1.0, "moderate"},
-		{"hail severe", "hail", 2.0, "severe"},
-		{"hail extreme", "hail", 3.0, "extreme"},
-		{"hail edge case 0.75", "hail", 0.75, "moderate"},
-		{"hail edge case 1.5", "hail", 1.5, "severe"},
-		{"hail edge case 2.5", "hail", 2.5, "extreme"},
+		{"hail minor", "hail", 0.5, stringPtr("minor")},
+		{"hail moderate", "hail", 1.0, stringPtr("moderate")},
+		{"hail severe", "hail", 2.0, stringPtr("severe")},
+		{"hail extreme", "hail", 3.0, stringPtr("extreme")},
+		{"hail edge case 0.75", "hail", 0.75, stringPtr("moderate")},
+		{"hail edge case 1.5", "hail", 1.5, stringPtr("severe")},
+		{"hail edge case 2.5", "hail", 2.5, stringPtr("extreme")},
 
 		// Wind
-		{"wind minor", "wind", 45, "minor"},
-		{"wind moderate", "wind", 60, "moderate"},
-		{"wind severe", "wind", 85, "severe"},
-		{"wind extreme", "wind", 100, "extreme"},
-		{"wind edge case 50", "wind", 50, "moderate"},
-		{"wind edge case 74", "wind", 74, "severe"},
-		{"wind edge case 96", "wind", 96, "extreme"},
+		{"wind minor", "wind", 45, stringPtr("minor")},
+		{"wind moderate", "wind", 60, stringPtr("moderate")},
+		{"wind severe", "wind", 85, stringPtr("severe")},
+		{"wind extreme", "wind", 100, stringPtr("extreme")},
+		{"wind edge case 50", "wind", 50, stringPtr("moderate")},
+		{"wind edge case 74", "wind", 74, stringPtr("severe")},
+		{"wind edge case 96", "wind", 96, stringPtr("extreme")},
 
 		// Tornado
-		{"tornado minor F1", "tornado", 1, "minor"},
-		{"tornado moderate F2", "tornado", 2, "moderate"},
-		{"tornado severe F3", "tornado", 3, "severe"},
-		{"tornado severe F4", "tornado", 4, "severe"},
-		{"tornado extreme F5", "tornado", 5, "extreme"},
+		{"tornado minor F1", "tornado", 1, stringPtr("minor")},
+		{"tornado moderate F2", "tornado", 2, stringPtr("moderate")},
+		{"tornado severe F3", "tornado", 3, stringPtr("severe")},
+		{"tornado severe F4", "tornado", 4, stringPtr("severe")},
+		{"tornado extreme F5", "tornado", 5, stringPtr("extreme")},
 
 		// Edge cases
-		{"zero magnitude", "hail", 0, ""},
-		{testUnknown, "earthquake", 5.5, ""},
-		{"empty type", "", 100, ""},
+		{"zero magnitude", "hail", 0, nil},
+		{testUnknown, "earthquake", 5.5, nil},
+		{"empty type", "", 100, nil},
 	}
 
 	for _, tt := range tests {
@@ -397,20 +405,20 @@ func TestParseLocation(t *testing.T) {
 		name              string
 		location          string
 		expectedName      string
-		expectedDistance  float64
-		expectedDirection string
+		expectedDistance  *float64
+		expectedDirection *string
 	}{
-		{"valid N direction", "5 N AUSTIN", "AUSTIN", 5.0, "N"},
-		{"valid NW direction", testLocationNW, "AUSTIN", 5.2, "NW"},
-		{"valid NNE direction", "10.5 NNE SAN ANTONIO", "SAN ANTONIO", 10.5, "NNE"},
-		{"valid with city name", "3.7 SW HOUSTON", "HOUSTON", 3.7, "SW"},
-		{"decimal distance", "2.25 E DALLAS", "DALLAS", 2.25, "E"},
-		{"no match - missing direction", "5 AUSTIN", "5 AUSTIN", 0, ""},
-		{"no match - missing distance", "N AUSTIN", "N AUSTIN", 0, ""},
-		{"no match - just city", "AUSTIN", "AUSTIN", 0, ""},
-		{testEmptyStr, "", "", 0, ""},
-		{"spaces only", "   ", "", 0, ""},
-		{"malformed distance", "abc N AUSTIN", "abc N AUSTIN", 0, ""},
+		{"valid N direction", "5 N AUSTIN", "AUSTIN", float64Ptr(5.0), stringPtr("N")},
+		{"valid NW direction", testLocationNW, "AUSTIN", float64Ptr(5.2), stringPtr("NW")},
+		{"valid NNE direction", "10.5 NNE SAN ANTONIO", "SAN ANTONIO", float64Ptr(10.5), stringPtr("NNE")},
+		{"valid with city name", "3.7 SW HOUSTON", "HOUSTON", float64Ptr(3.7), stringPtr("SW")},
+		{"decimal distance", "2.25 E DALLAS", "DALLAS", float64Ptr(2.25), stringPtr("E")},
+		{"no match - missing direction", "5 AUSTIN", "5 AUSTIN", nil, nil},
+		{"no match - missing distance", "N AUSTIN", "N AUSTIN", nil, nil},
+		{"no match - just city", "AUSTIN", "AUSTIN", nil, nil},
+		{testEmptyStr, "", "", nil, nil},
+		{"spaces only", "   ", "", nil, nil},
+		{"malformed distance", "abc N AUSTIN", "abc N AUSTIN", nil, nil},
 	}
 
 	for _, tt := range tests {
@@ -427,7 +435,7 @@ func TestDeriveTimeBucket(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    time.Time
-		expected string
+		expected time.Time
 	}{
 		{
 			"hour boundary",
@@ -442,12 +450,12 @@ func TestDeriveTimeBucket(t *testing.T) {
 		{
 			"different timezone",
 			time.Date(2024, 4, 26, 15, 30, 0, 0, time.FixedZone("EST", -5*3600)),
-			"2024-04-26T20:00:00Z",
+			time.Date(2024, 4, 26, 20, 0, 0, 0, time.UTC),
 		},
 		{
 			"zero time",
 			time.Time{},
-			"",
+			time.Time{},
 		},
 	}
 
@@ -466,9 +474,7 @@ func TestSerializeStormEvent(t *testing.T) {
 		event := StormEvent{
 			ID:          testEventID,
 			EventType:   "hail",
-			Magnitude:   1.5,
-			Unit:        "in",
-			Severity:    "moderate",
+			Measurement: Measurement{Magnitude: 1.5, Unit: "in", Severity: stringPtr("moderate")},
 			ProcessedAt: fixedTime,
 		}
 
@@ -482,7 +488,7 @@ func TestSerializeStormEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, testEventID, unmarshaled.ID)
 		assert.Equal(t, "hail", unmarshaled.EventType)
-		assert.Equal(t, 1.5, unmarshaled.Magnitude)
+		assert.Equal(t, 1.5, unmarshaled.Measurement.Magnitude)
 
 		assert.Equal(t, "hail", result.Headers["type"])
 		assert.Equal(t, "2024-04-26T12:00:00Z", result.Headers["processed_at"])
@@ -512,8 +518,8 @@ func TestSerializeStormEvent(t *testing.T) {
 			Location: Location{
 				Raw:       testLocationNW,
 				Name:      "AUSTIN",
-				Distance:  5.2,
-				Direction: "NW",
+				Distance:  float64Ptr(5.2),
+				Direction: stringPtr("NW"),
 				State:     "TX",
 				County:    "TRAVIS",
 			},

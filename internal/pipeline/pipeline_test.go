@@ -158,7 +158,7 @@ func TestDomain_ParseRawEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, event.ID)
 	assert.Equal(t, "wind", event.EventType)
-	assert.Equal(t, 65.0, event.Magnitude)
+	assert.Equal(t, 65.0, event.Measurement.Magnitude)
 	assert.True(t, event.ProcessedAt.IsZero())
 }
 
@@ -177,30 +177,33 @@ func TestDomain_EnrichStormEvent_NormalizesFields(t *testing.T) {
 
 	// Event type is metadata added by upstream service, should already be normalized
 	hail := domain.EnrichStormEvent(domain.StormEvent{
-		EventType: "hail",
-		Magnitude: 175,
-		Unit:      "in",
-		Location:  domain.Location{Raw: "8 ESE Chappel"},
-		Comments:  "Quarter hail reported. (FWD)",
-		Geo:       domain.Geo{Lat: 31.02, Lon: -98.44},
-		BeginTime: fakeClock.Now(),
+		EventType:   "hail",
+		Measurement: domain.Measurement{Magnitude: 175, Unit: "in"},
+		Location:    domain.Location{Raw: "8 ESE Chappel"},
+		Comments:    "Quarter hail reported. (FWD)",
+		Geo:         domain.Geo{Lat: 31.02, Lon: -98.44},
+		BeginTime:   fakeClock.Now(),
 	})
 	assert.Equal(t, "hail", hail.EventType)
-	assert.InEpsilon(t, 1.75, hail.Magnitude, 0.0001)
-	assert.Equal(t, "severe", hail.Severity)
+	assert.InEpsilon(t, 1.75, hail.Measurement.Magnitude, 0.0001)
+	require.NotNil(t, hail.Measurement.Severity)
+	assert.Equal(t, "severe", *hail.Measurement.Severity)
 	assert.Equal(t, "FWD", hail.SourceOffice)
 	assert.Equal(t, "Chappel", hail.Location.Name)
-	assert.InEpsilon(t, 8.0, hail.Location.Distance, 0.0001)
-	assert.Equal(t, "ESE", hail.Location.Direction)
-	assert.Equal(t, "2024-04-26T15:00:00Z", hail.TimeBucket)
+	require.NotNil(t, hail.Location.Distance)
+	assert.InEpsilon(t, 8.0, *hail.Location.Distance, 0.0001)
+	require.NotNil(t, hail.Location.Direction)
+	assert.Equal(t, "ESE", *hail.Location.Direction)
+	assert.Equal(t, time.Date(2024, time.April, 26, 15, 0, 0, 0, time.UTC), hail.TimeBucket)
 
 	tornado := domain.EnrichStormEvent(domain.StormEvent{
-		EventType: "tornado",
-		Magnitude: 2,
+		EventType:   "tornado",
+		Measurement: domain.Measurement{Magnitude: 2},
 	})
 	assert.Equal(t, "tornado", tornado.EventType)
-	assert.Equal(t, "f_scale", tornado.Unit)
-	assert.Equal(t, "moderate", tornado.Severity)
+	assert.Equal(t, "f_scale", tornado.Measurement.Unit)
+	require.NotNil(t, tornado.Measurement.Severity)
+	assert.Equal(t, "moderate", *tornado.Measurement.Severity)
 
 	// Invalid event types should be rejected
 	unknown := domain.EnrichStormEvent(domain.StormEvent{

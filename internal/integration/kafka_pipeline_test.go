@@ -135,7 +135,7 @@ func TestKafkaReaderWriter(t *testing.T) {
 	assert.Equal(t, "TX", tm.Event.Location.State)
 	assert.Equal(t, "San Saba", tm.Event.Location.County)
 	assert.Equal(t, "Chappel", tm.Event.Location.Name)
-	assert.Equal(t, 1.25, tm.Event.Magnitude)
+	assert.Equal(t, 1.25, tm.Event.Measurement.Magnitude)
 }
 
 // TestPipelineEndToEnd wires the full pipeline (Reader → Transformer → Writer) with
@@ -226,7 +226,7 @@ func TestPipelineEndToEnd(t *testing.T) {
 		assert.NoError(t, err, "invalid processed_at format")
 
 		// All events should have a time bucket.
-		assert.NotEmpty(t, tm.Event.TimeBucket, "missing time_bucket")
+		assert.False(t, tm.Event.TimeBucket.IsZero(), "missing time_bucket")
 	}
 
 	assert.Equal(t, 10, typeCounts["hail"], "hail count")
@@ -241,12 +241,15 @@ func TestPipelineEndToEnd(t *testing.T) {
 		foundHail = true
 		assert.Equal(t, "hail", tm.Event.EventType)
 		assert.Equal(t, "Chappel", tm.Event.Location.Name)
-		assert.Equal(t, "ESE", tm.Event.Location.Direction)
-		assert.Equal(t, 8.0, tm.Event.Location.Distance)
+		require.NotNil(t, tm.Event.Location.Direction)
+		assert.Equal(t, "ESE", *tm.Event.Location.Direction)
+		require.NotNil(t, tm.Event.Location.Distance)
+		assert.Equal(t, 8.0, *tm.Event.Location.Distance)
 		assert.Equal(t, "SJT", tm.Event.SourceOffice)
-		assert.Equal(t, "moderate", tm.Event.Severity)
-		assert.Equal(t, 1.25, tm.Event.Magnitude)
-		assert.Equal(t, "2024-04-26T15:00:00Z", tm.Event.TimeBucket)
+		require.NotNil(t, tm.Event.Measurement.Severity)
+		assert.Equal(t, "moderate", *tm.Event.Measurement.Severity)
+		assert.Equal(t, 1.25, tm.Event.Measurement.Magnitude)
+		assert.Equal(t, time.Date(2024, time.April, 26, 15, 0, 0, 0, time.UTC), tm.Event.TimeBucket)
 		break
 	}
 	assert.True(t, foundHail, "expected to find San Saba TX hail record")
@@ -260,7 +263,7 @@ func TestPipelineEndToEnd(t *testing.T) {
 		foundTornado = true
 		assert.Equal(t, "Mcalester", tm.Event.Location.Name)
 		assert.Equal(t, "TSA", tm.Event.SourceOffice)
-		assert.Equal(t, "2024-04-26T12:00:00Z", tm.Event.TimeBucket)
+		assert.Equal(t, time.Date(2024, time.April, 26, 12, 0, 0, 0, time.UTC), tm.Event.TimeBucket)
 		break
 	}
 	assert.True(t, foundTornado, "expected to find Pittsburg OK tornado record")

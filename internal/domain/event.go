@@ -35,42 +35,68 @@ type RawEvent struct {
 }
 
 // Location holds both the raw NWS location string and its parsed components.
+// Nested because these fields are tightly coupled: enrichment parses the raw
+// NWS format ("8 ESE Chappel") into name/distance/direction, and all six fields
+// travel together through the pipeline. The API flattens to location_* columns.
 type Location struct {
-	Raw       string  `json:"raw,omitempty"`
-	Name      string  `json:"name,omitempty"`
-	Distance  float64 `json:"distance,omitempty"`
-	Direction string  `json:"direction,omitempty"`
-	State     string  `json:"state,omitempty"`
-	County    string  `json:"county,omitempty"`
+	Raw       string   `json:"raw,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Distance  *float64 `json:"distance,omitempty"`
+	Direction *string  `json:"direction,omitempty"`
+	State     string   `json:"state,omitempty"`
+	County    string   `json:"county,omitempty"`
 }
 
 // Geo represents a WGS-84 latitude/longitude coordinate pair.
+// Nested because lat/lon are always used together (geocoding lookups, bounding-box
+// queries, distance calculations). The API flattens to geo_lat/geo_lon columns.
 type Geo struct {
 	Lat float64 `json:"lat,omitempty"`
 	Lon float64 `json:"lon,omitempty"`
 }
 
-// StormEvent is the domain-rich representation after parsing.
-type StormEvent struct {
-	ID           string    `json:"id"`
-	EventType    string    `json:"type"`
-	Geo          Geo       `json:"geo,omitempty"`
-	Magnitude    float64   `json:"magnitude"`
-	Unit         string    `json:"unit"`
-	BeginTime    time.Time `json:"begin_time"`
-	EndTime      time.Time `json:"end_time"`
-	Source       string    `json:"source"`
-	Location     Location  `json:"location,omitempty"`
-	Comments     string    `json:"comments,omitempty"`
-	Severity     string    `json:"severity,omitempty"`
-	SourceOffice string    `json:"source_office,omitempty"`
-	TimeBucket   string    `json:"time_bucket,omitempty"`
+// Measurement groups the numeric observation: what was measured, in what unit,
+// and how severe. Nested because magnitude, unit, and severity form a semantic
+// chain — unit determines normalization, magnitude determines severity. Maps
+// directly to the GraphQL Measurement type. The API flattens to measurement_*
+// columns.
+type Measurement struct {
+	Magnitude float64 `json:"magnitude"`
+	Unit      string  `json:"unit"`
+	Severity  *string `json:"severity,omitempty"`
+}
 
-	// Geocoding enrichment fields.
+// Geocoding holds the results of the optional geocoding enrichment step.
+// Nested because all four fields are always set together (or all left at zero
+// values) from a single Mapbox API call. Maps to the GraphQL Geocoding type.
+// The API flattens to geocoding_* columns.
+type Geocoding struct {
 	FormattedAddress string  `json:"formatted_address,omitempty"`
 	PlaceName        string  `json:"place_name,omitempty"`
-	GeoConfidence    float64 `json:"geo_confidence,omitempty"`
-	GeoSource        string  `json:"geo_source,omitempty"` // "forward", "reverse", "original", "failed"
+	Confidence       float64 `json:"confidence,omitempty"`
+	Source           string  `json:"source,omitempty"` // "forward", "reverse", "original", "failed"
+}
+
+// StormEvent is the domain-rich representation after parsing and enrichment.
+//
+// All fields are grouped into nested structs when they represent cohesive domain
+// concepts: Geo (coordinates), Location (NWS place data), Measurement (what was
+// observed), and Geocoding (reverse/forward lookup results). The Kafka wire format
+// reflects this nesting. The API deserializes it via json.Unmarshal, flattens to
+// prefixed DB columns, and gqlgen auto-resolves the GraphQL types from these structs.
+type StormEvent struct {
+	ID           string      `json:"id"`
+	EventType    string      `json:"type"`
+	Geo          Geo         `json:"geo,omitempty"`
+	Measurement  Measurement `json:"measurement"`
+	BeginTime    time.Time   `json:"begin_time"`
+	EndTime      time.Time   `json:"end_time"`
+	Source       string      `json:"source"`
+	Location     Location    `json:"location,omitempty"`
+	Comments     string      `json:"comments,omitempty"`
+	SourceOffice string      `json:"source_office,omitempty"`
+	TimeBucket   time.Time   `json:"time_bucket,omitempty"`
+	Geocoding    Geocoding   `json:"geocoding,omitempty"`
 
 	RawPayload  []byte    `json:"-"`
 	ProcessedAt time.Time `json:"processed_at"`
