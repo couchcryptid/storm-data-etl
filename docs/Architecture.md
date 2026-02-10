@@ -1,31 +1,10 @@
 # Architecture
 
+![Architecture](architecture.excalidraw.svg)
+
 ## Overview
 
 The Storm Data ETL Service is a single-binary Go application that reads raw storm reports from Kafka, enriches them, and writes the results back to Kafka. It follows a hexagonal (ports and adapters) architecture.
-
-## Data Flow
-
-```
-Kafka Source Topic            ETL Service                    Kafka Sink Topic
-(raw-weather-reports)                                       (transformed-weather-data)
-                        +-------------------------+
-  JSON storm report --> | Extract (KafkaReader)   |
-                        |           |             |
-                        | Transform (Domain Logic)|
-                        |   - Parse JSON          |
-                        |   - Normalize fields    |
-                        |   - Enrich (severity,   |
-                        |     location, office)   |
-                        |   - Geocode (optional,  |
-                        |     via Mapbox API)      |
-                        |           |             |
-                        | Load (KafkaWriter)      | --> Enriched JSON event
-                        +-------------------------+
-                                |
-                         HTTP Server (:8080)
-                          /healthz  /readyz  /metrics
-```
 
 ## Package Layout
 

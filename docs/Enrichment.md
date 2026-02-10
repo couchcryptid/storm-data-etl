@@ -4,6 +4,8 @@ The transform stage applies a series of enrichment steps to each raw storm event
 
 ## Pipeline
 
+![Enrichment Pipeline](enrichment-pipeline.excalidraw.svg)
+
 Each event passes through these steps in order:
 
 1. **Parse** -- Deserialize raw JSON into a `StormEvent`
@@ -112,6 +114,8 @@ The `begin_time` is truncated to the hour in UTC and formatted as RFC 3339.
 Example: `2024-04-26T15:45:30Z` -> `2024-04-26T15:00:00Z`
 
 ## Geocoding Enrichment
+
+![Geocoding Strategy](geocoding-strategy.excalidraw.svg)
 
 When Mapbox geocoding is enabled (`MAPBOX_TOKEN` set), events are enriched with location data via forward or reverse geocoding. This step is handled by `EnrichWithGeocoding()` in `internal/domain/geocode.go`.
 
