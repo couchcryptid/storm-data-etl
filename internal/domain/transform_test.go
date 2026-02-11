@@ -162,24 +162,30 @@ func TestParseMagnitudeField(t *testing.T) {
 
 func TestGenerateID(t *testing.T) {
 	t.Run("includes event type prefix", func(t *testing.T) {
-		id := generateID("hail", "TX", 31.02, -98.44, "1510")
+		id := generateID("hail", "TX", 31.02, -98.44, "1510", 1.75)
 		assert.True(t, strings.HasPrefix(id, "hail-"))
 	})
 
 	t.Run("deterministic", func(t *testing.T) {
-		id1 := generateID("wind", "OK", 34.94, -95.77, "1251")
-		id2 := generateID("wind", "OK", 34.94, -95.77, "1251")
+		id1 := generateID("wind", "OK", 34.94, -95.77, "1251", 65)
+		id2 := generateID("wind", "OK", 34.94, -95.77, "1251", 65)
 		assert.Equal(t, id1, id2)
 	})
 
 	t.Run("different inputs produce different IDs", func(t *testing.T) {
-		id1 := generateID("hail", "TX", 31.02, -98.44, "1510")
-		id2 := generateID("hail", "TX", 31.02, -98.44, "1511")
+		id1 := generateID("hail", "TX", 31.02, -98.44, "1510", 1.75)
+		id2 := generateID("hail", "TX", 31.02, -98.44, "1511", 1.75)
+		assert.NotEqual(t, id1, id2)
+	})
+
+	t.Run("different magnitudes produce different IDs", func(t *testing.T) {
+		id1 := generateID("wind", "AZ", 34.08, -112.14, "0100", 60)
+		id2 := generateID("wind", "AZ", 34.08, -112.14, "0100", 0)
 		assert.NotEqual(t, id1, id2)
 	})
 
 	t.Run("empty type", func(t *testing.T) {
-		id := generateID("", "TX", 31.02, -98.44, "1510")
+		id := generateID("", "TX", 31.02, -98.44, "1510", 1.75)
 		assert.NotEmpty(t, id)
 		// No type prefix, just the hex hash
 		assert.NotContains(t, id, "hail")

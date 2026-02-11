@@ -35,7 +35,7 @@ func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 	beginTime := parseHHMM(raw.Timestamp, rec.Time)
 
 	return StormEvent{
-		ID:          generateID(rec.Type, rec.State, lat, lon, rec.Time),
+		ID:          generateID(rec.Type, rec.State, lat, lon, rec.Time, magnitude),
 		EventType:   rec.Type,
 		Geo:         Geo{Lat: lat, Lon: lon},
 		Measurement: Measurement{Magnitude: magnitude},
@@ -115,8 +115,8 @@ func parseHHMM(baseDate time.Time, hhmm string) time.Time {
 // generateID produces a deterministic ID from the event's key fields.
 // Deterministic IDs enable idempotent upserts (ON CONFLICT DO NOTHING) and
 // replay safety — reprocessing the same raw event produces the same ID.
-func generateID(eventType, state string, lat, lon float64, timeStr string) string {
-	input := fmt.Sprintf("%s|%s|%.4f|%.4f|%s", eventType, state, lat, lon, timeStr)
+func generateID(eventType, state string, lat, lon float64, timeStr string, magnitude float64) string {
+	input := fmt.Sprintf("%s|%s|%.4f|%.4f|%s|%g", eventType, state, lat, lon, timeStr, magnitude)
 	hash := sha256.Sum256([]byte(input))
 	short := hex.EncodeToString(hash[:8])
 	if eventType == "" {
