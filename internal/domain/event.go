@@ -89,9 +89,7 @@ type StormEvent struct {
 	EventType    string      `json:"event_type"`
 	Geo          Geo         `json:"geo,omitempty"`
 	Measurement  Measurement `json:"measurement"`
-	BeginTime    time.Time   `json:"begin_time"`
-	EndTime      time.Time   `json:"end_time"`
-	Source       string      `json:"source"`
+	EventTime    time.Time   `json:"event_time"`
 	Location     Location    `json:"location,omitempty"`
 	Comments     string      `json:"comments,omitempty"`
 	SourceOffice string      `json:"source_office,omitempty"`

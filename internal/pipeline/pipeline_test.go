@@ -343,7 +343,7 @@ func TestDomain_EnrichStormEvent_NormalizesFields(t *testing.T) {
 		Location:    domain.Location{Raw: "8 ESE Chappel"},
 		Comments:    "Quarter hail reported. (FWD)",
 		Geo:         domain.Geo{Lat: 31.02, Lon: -98.44},
-		BeginTime:   fakeClock.Now(),
+		EventTime:   fakeClock.Now(),
 	})
 	assert.Equal(t, "hail", hail.EventType)
 	assert.InEpsilon(t, 1.75, hail.Measurement.Magnitude, 0.0001)
@@ -440,7 +440,7 @@ func makeRawEvent(t *testing.T, id, eventType string) domain.RawEvent {
 		ID:        id,
 		EventType: eventType,
 		Geo:       domain.Geo{Lat: 35.0, Lon: -97.0},
-		BeginTime: time.Now(),
+		EventTime: time.Now(),
 	})
 	require.NoError(t, err)
 	return domain.RawEvent{

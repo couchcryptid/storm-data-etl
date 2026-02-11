@@ -165,7 +165,6 @@ func processCSV(path, eventType, magCol string) ([]domain.RawCSVRecord, []domain
 		}
 
 		enriched := domain.EnrichStormEvent(parsed)
-		enriched.Source = "spc"
 		events = append(events, enriched)
 	}
 
@@ -339,7 +338,7 @@ func printHailDetails(events []domain.StormEvent) {
 		fmt.Printf("  Location: %s (name=%s, state=%s, county=%s)\n",
 			e.Location.Raw, e.Location.Name, e.Location.State, e.Location.County)
 		fmt.Printf("  SourceOffice: %s\n", e.SourceOffice)
-		fmt.Printf("  BeginTime: %s\n", e.BeginTime.Format(time.RFC3339))
+		fmt.Printf("  EventTime: %s\n", e.EventTime.Format(time.RFC3339))
 		fmt.Printf("  TimeBucket: %s\n", e.TimeBucket.Format(time.RFC3339))
 		break
 	}

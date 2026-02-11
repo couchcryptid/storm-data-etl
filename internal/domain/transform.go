@@ -32,15 +32,14 @@ func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 	lat := parseFloatOrZero(rec.Lat)
 	lon := parseFloatOrZero(rec.Lon)
 	magnitude := parseMagnitudeField(rec.EventType, rec.Size, rec.FScale, rec.Speed)
-	beginTime := parseHHMM(raw.Timestamp, rec.Time)
+	eventTime := parseHHMM(raw.Timestamp, rec.Time)
 
 	return StormEvent{
 		ID:          generateID(rec.EventType, rec.State, lat, lon, rec.Time, magnitude),
 		EventType:   rec.EventType,
 		Geo:         Geo{Lat: lat, Lon: lon},
 		Measurement: Measurement{Magnitude: magnitude},
-		BeginTime:   beginTime,
-		EndTime:     beginTime,
+		EventTime:   eventTime,
 		Location:    Location{Raw: rec.Location, State: rec.State, County: rec.County},
 		Comments:    rec.Comments,
 
@@ -139,7 +138,7 @@ func EnrichStormEvent(event StormEvent) StormEvent {
 	event.Location.Name = locationName
 	event.Location.Distance = locationDistance
 	event.Location.Direction = locationDirection
-	event.TimeBucket = deriveTimeBucket(event.BeginTime)
+	event.TimeBucket = deriveTimeBucket(event.EventTime)
 	event.ProcessedAt = clock.Now()
 	return event
 }
@@ -288,14 +287,14 @@ func parseLocationDistance(value string) (float64, error) {
 	return strconv.ParseFloat(value, 64)
 }
 
-// deriveTimeBucket truncates the event's begin time to the hour in UTC.
-// Returns zero time if begin is zero.
-func deriveTimeBucket(begin time.Time) time.Time {
-	if begin.IsZero() {
+// deriveTimeBucket truncates the event time to the hour in UTC.
+// Returns zero time if the input is zero.
+func deriveTimeBucket(t time.Time) time.Time {
+	if t.IsZero() {
 		return time.Time{}
 	}
 
-	return begin.UTC().Truncate(time.Hour)
+	return t.UTC().Truncate(time.Hour)
 }
 
 // SerializeStormEvent marshals a StormEvent into an OutputEvent.

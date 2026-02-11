@@ -416,7 +416,6 @@ func transformETLRecord(rec domain.RawCSVRecord) (domain.StormEvent, error) {
 		return domain.StormEvent{}, fmt.Errorf("parse error: %w", err)
 	}
 	enriched := domain.EnrichStormEvent(parsed)
-	enriched.Source = "spc"
 	return enriched, nil
 }
 
@@ -440,8 +439,8 @@ func compareEvents(p *phase, enriched domain.StormEvent, api *domain.StormEvent)
 		p.errorf("ID %s: severity: expected %s, got %s", id, ptrStr(enriched.Measurement.Severity), ptrStr(api.Measurement.Severity))
 	}
 
-	if !api.BeginTime.Equal(enriched.BeginTime) {
-		p.errorf("ID %s: begin_time: expected %s, got %s", id, enriched.BeginTime.Format(time.RFC3339), api.BeginTime.Format(time.RFC3339))
+	if !api.EventTime.Equal(enriched.EventTime) {
+		p.errorf("ID %s: event_time: expected %s, got %s", id, enriched.EventTime.Format(time.RFC3339), api.EventTime.Format(time.RFC3339))
 	}
 	if api.SourceOffice != enriched.SourceOffice {
 		p.errorf("ID %s: source_office: expected %q, got %q", id, enriched.SourceOffice, api.SourceOffice)
@@ -527,14 +526,11 @@ func checkSchemaRequiredFields(pf func(string, ...any), e *domain.StormEvent) {
 	if e.Location.Name == "" {
 		pf("location.name is empty")
 	}
-	if e.BeginTime.IsZero() {
-		pf("begin_time is zero")
+	if e.EventTime.IsZero() {
+		pf("event_time is zero")
 	}
 	if e.TimeBucket.IsZero() {
 		pf("time_bucket is zero")
-	}
-	if e.Source != "spc" {
-		pf("source is %q (expected \"spc\")", e.Source)
 	}
 	if e.ProcessedAt.IsZero() {
 		pf("processed_at is zero")

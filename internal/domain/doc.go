@@ -59,7 +59,7 @@
 //
 // # ID Generation
 //
-// Event IDs are deterministic SHA-256 hashes of type|state|lat|lon|time. This
+// Event IDs are deterministic SHA-256 hashes of event_type|state|lat|lon|time|magnitude. This
 // enables idempotent upserts downstream (ON CONFLICT DO NOTHING) and replay
 // safety without distributed coordination. See [generateID].
 package domain

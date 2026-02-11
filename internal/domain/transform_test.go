@@ -40,8 +40,7 @@ func TestParseRawEvent(t *testing.T) {
 		assert.Equal(t, "San Saba", result.Location.County)
 		assert.Equal(t, "TX", result.Location.State)
 		assert.Equal(t, "1.25 inch hail reported. (SJT)", result.Comments)
-		assert.Equal(t, time.Date(2024, 4, 26, 15, 10, 0, 0, time.UTC), result.BeginTime)
-		assert.Equal(t, result.BeginTime, result.EndTime)
+		assert.Equal(t, time.Date(2024, 4, 26, 15, 10, 0, 0, time.UTC), result.EventTime)
 		assert.NotEmpty(t, result.ID)
 		assert.True(t, strings.HasPrefix(result.ID, "hail-"))
 		assert.Equal(t, data, result.RawPayload)
@@ -203,7 +202,7 @@ func TestEnrichStormEvent(t *testing.T) {
 			ID:          "evt-1",
 			EventType:   "hail",
 			Measurement: Measurement{Magnitude: 175, Unit: "in"},
-			BeginTime:   time.Date(2024, 4, 26, 15, 45, 0, 0, time.UTC),
+			EventTime:   time.Date(2024, 4, 26, 15, 45, 0, 0, time.UTC),
 			Comments:    "Large hail reported (ABC)",
 			Location:    Location{Raw: testLocationNW},
 		}
@@ -529,8 +528,7 @@ func TestSerializeStormEvent(t *testing.T) {
 				State:     "TX",
 				County:    "TRAVIS",
 			},
-			BeginTime:    time.Date(2024, 4, 26, 15, 0, 0, 0, time.UTC),
-			EndTime:      time.Date(2024, 4, 26, 15, 30, 0, 0, time.UTC),
+			EventTime:    time.Date(2024, 4, 26, 15, 0, 0, 0, time.UTC),
 			Comments:     "Tornado confirmed (AUS)",
 			SourceOffice: "AUS",
 			ProcessedAt:  fixedTime,

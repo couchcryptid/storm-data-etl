@@ -46,3 +46,22 @@ jobs:
 
       - name: Build
         run: make build
+
+  sonarcloud:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Unit tests with coverage
+        run: go test ./... -count=1 -race -coverprofile=coverage.out
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v7
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

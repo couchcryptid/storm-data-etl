@@ -109,7 +109,7 @@ Examples:
 
 ## Time Bucket
 
-The `begin_time` is truncated to the hour in UTC and formatted as RFC 3339.
+The `event_time` is truncated to the hour in UTC and formatted as RFC 3339.
 
 Example: `2024-04-26T15:45:30Z` -> `2024-04-26T15:00:00Z`
 
