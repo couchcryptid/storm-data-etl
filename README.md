@@ -56,6 +56,8 @@ All configuration is via environment variables (loaded from `.env` in Docker Com
 | `MAPBOX_ENABLED`     | auto-detected              | Explicit override (`true`/`false`) for geocoding |
 | `MAPBOX_TIMEOUT`     | `5s`                       | HTTP timeout for Mapbox API requests           |
 | `MAPBOX_CACHE_SIZE`  | `1000`                     | Max entries in the geocoding LRU cache         |
+| `BATCH_SIZE`         | `50`                       | Messages per batch (1--1000)                   |
+| `BATCH_FLUSH_INTERVAL` | `500ms`                  | Max wait before flushing a partial batch       |
 
 ## HTTP Endpoints
 
@@ -67,17 +69,19 @@ All configuration is via environment variables (loaded from `.env` in Docker Com
 
 ## Prometheus Metrics
 
-| Metric                              | Type      | Labels              | Description                                 |
-| ----------------------------------- | --------- | ------------------- | ------------------------------------------- |
-| `etl_messages_consumed_total`       | Counter   | --                  | Messages read from the source topic         |
-| `etl_messages_produced_total`       | Counter   | --                  | Messages written to the sink topic          |
-| `etl_transform_errors_total`        | Counter   | --                  | Transformation failures (malformed input)   |
-| `etl_processing_duration_seconds`   | Histogram | --                  | Duration of each extract-transform-load cycle |
-| `etl_pipeline_running`              | Gauge     | --                  | `1` when the pipeline loop is active        |
-| `etl_geocode_requests_total`        | Counter   | `method`, `outcome` | Geocoding API requests (forward/reverse, success/error/empty) |
-| `etl_geocode_cache_total`           | Counter   | `method`, `result`  | Geocoding cache lookups (forward/reverse, hit/miss) |
-| `etl_geocode_api_duration_seconds`  | Histogram | `method`            | Mapbox API request duration                 |
-| `etl_geocode_enabled`               | Gauge     | --                  | `1` when geocoding enrichment is active     |
+| Metric                                        | Type      | Labels              | Description                                 |
+| --------------------------------------------- | --------- | ------------------- | ------------------------------------------- |
+| `storm_etl_messages_consumed_total`            | Counter   | `topic`             | Messages read from the source topic         |
+| `storm_etl_messages_produced_total`            | Counter   | `topic`             | Messages written to the sink topic          |
+| `storm_etl_transform_errors_total`             | Counter   | `error_type`        | Transformation failures (malformed input)   |
+| `storm_etl_processing_duration_seconds`        | Histogram | --                  | Duration of each extract-transform-load cycle |
+| `storm_etl_pipeline_running`                   | Gauge     | --                  | `1` when the pipeline loop is active        |
+| `storm_etl_batch_size`                         | Histogram | --                  | Number of messages per batch                |
+| `storm_etl_batch_processing_duration_seconds`  | Histogram | --                  | Duration of batch processing                |
+| `storm_etl_geocode_requests_total`             | Counter   | `method`, `outcome` | Geocoding API requests (forward/reverse, success/error/empty) |
+| `storm_etl_geocode_cache_total`                | Counter   | `method`, `result`  | Geocoding cache lookups (forward/reverse, hit/miss) |
+| `storm_etl_geocode_api_duration_seconds`       | Histogram | `method`            | Mapbox API request duration                 |
+| `storm_etl_geocode_enabled`                    | Gauge     | --                  | `1` when geocoding enrichment is active     |
 
 ## Development
 
@@ -101,7 +105,7 @@ Integration tests require Docker because they use a Kafka container.
 cmd/etl/                    Entry point
 internal/
   adapter/
-    http/                   Health, readiness, and metrics HTTP server
+    httpadapter/            Health, readiness, and metrics HTTP server
     kafka/                  Kafka reader (consumer) and writer (producer)
     mapbox/                 Mapbox geocoding client with LRU cache
   config/                   Environment-based configuration
@@ -116,9 +120,8 @@ data/mock/                  Sample storm report JSON for testing
 
 See the [project wiki](../../wiki) for detailed documentation:
 
-- [Architecture](../../wiki/Architecture) -- System design and data flow
+- [Architecture](../../wiki/Architecture) -- System design, data flow, and capacity
 - [Configuration](../../wiki/Configuration) -- Environment variables and validation
-- [Deployment](../../wiki/Deployment) -- Docker Compose and production deployment
+- [Deployment](../../wiki/Deployment) -- Docker Compose and Docker image
 - [Development](../../wiki/Development) -- Developer workflow, testing, and CI
 - [Enrichment Rules](../../wiki/Enrichment) -- Transformation and severity classification logic
-- [Performance](../../wiki/Performance) -- Theoretical throughput, scaling, and bottleneck analysis

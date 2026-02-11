@@ -26,24 +26,24 @@ Pure domain logic with no infrastructure dependencies.
 
 Orchestration layer that defines the ETL interfaces and loop.
 
-- **`pipeline.go`** -- `Extractor`, `Transformer`, and `Loader` interfaces. The `Pipeline` struct runs the continuous extract-transform-load loop with backoff on failure.
+- **`pipeline.go`** -- `BatchExtractor`, `Transformer`, and `BatchLoader` interfaces. The `Pipeline` struct runs the continuous extract-transform-load loop with batch processing and backoff on failure.
 - **`transform.go`** -- `StormTransformer` adapts domain functions to the `Transformer` interface. Calls `EnrichStormEvent` followed by `EnrichWithGeocoding` (when a geocoder is configured).
 
 ### `internal/adapter/kafka`
 
-Kafka infrastructure adapters that directly implement the pipeline's `Extractor` and `Loader` interfaces.
+Kafka infrastructure adapters that directly implement the pipeline's `BatchExtractor` and `BatchLoader` interfaces.
 
-- **`reader.go`** -- Wraps `segmentio/kafka-go` Reader with explicit offset commit (consumer group mode). Implements `pipeline.Extractor`.
-- **`writer.go`** -- Wraps `segmentio/kafka-go` Writer with `RequireAll` acks. Implements `pipeline.Loader`.
+- **`reader.go`** -- Wraps `segmentio/kafka-go` Reader with explicit offset commit (consumer group mode) and time-bounded batch extraction. Implements `pipeline.BatchExtractor`.
+- **`writer.go`** -- Wraps `segmentio/kafka-go` Writer with `RequireAll` acks and batch writes. Implements `pipeline.BatchLoader`.
 
 ### `internal/adapter/mapbox`
 
 Mapbox Geocoding API adapter that implements `domain.Geocoder`.
 
-- **`client.go`** -- HTTP client for forward and reverse geocoding via the Mapbox Places API. Instrumented with Prometheus metrics for request outcomes (`etl_geocode_requests_total`) and API latency (`etl_geocode_api_duration_seconds`).
-- **`cache.go`** -- `CachedGeocoder` decorator wrapping any `Geocoder` with a thread-safe LRU cache. Instrumented with cache hit/miss metrics (`etl_geocode_cache_total`). Empty results (no `FormattedAddress`) are not cached so transient "not found" responses can be retried.
+- **`client.go`** -- HTTP client for forward and reverse geocoding via the Mapbox Places API. Instrumented with Prometheus metrics for request outcomes (`storm_etl_geocode_requests_total`) and API latency (`storm_etl_geocode_api_duration_seconds`).
+- **`cache.go`** -- `CachedGeocoder` decorator wrapping any `Geocoder` with a thread-safe LRU cache. Instrumented with cache hit/miss metrics (`storm_etl_geocode_cache_total`). Empty results (no `FormattedAddress`) are not cached so transient "not found" responses can be retried.
 
-### `internal/adapter/http`
+### `internal/adapter/httpadapter`
 
 HTTP server for operational endpoints.
 
@@ -66,7 +66,7 @@ Environment-based configuration using `os.Getenv` with sensible defaults and val
 
 Infrastructure adapters (Kafka, HTTP) are separated from domain logic via interfaces defined in the `pipeline` package. This allows:
 
-- Unit testing the pipeline with mock extractors, transformers, and loaders
+- Unit testing the pipeline with mock batch extractors, transformers, and loaders
 - Swapping Kafka for another broker without touching domain or pipeline code
 
 ### Explicit Offset Commit
@@ -100,3 +100,33 @@ If a geocoding request fails (network error, API error, or no results), the even
 ### LRU Cache for Geocoding
 
 The `CachedGeocoder` uses an in-memory LRU cache to avoid redundant API calls for frequently seen locations. The cache is thread-safe, configurable in size (`MAPBOX_CACHE_SIZE`), and only stores successful results with a non-empty `FormattedAddress`.
+
+### Batch Processing
+
+The pipeline extracts, transforms, and loads messages in configurable batches (`BATCH_SIZE`, `BATCH_FLUSH_INTERVAL`). The `BatchExtractor` fetches up to N messages within a time window; the `BatchLoader` writes the entire batch in one call.
+
+**Why**: Batch writes amortize Kafka producer overhead. Time-bounded fetching ensures partial batches flush promptly rather than blocking indefinitely for a full batch. The transform step remains per-message since enrichment logic is stateless and doesn't benefit from batching.
+
+### Deterministic IDs
+
+Event IDs are SHA-256 hashes of `type|state|lat|lon|time`. The same raw event always produces the same ID, regardless of how many times it is processed.
+
+**Why**: Enables idempotent writes at every downstream stage. The API's `ON CONFLICT (id) DO NOTHING` naturally deduplicates without coordination. No distributed ID generation or sequence allocation needed.
+
+### Consumer-Defined Interfaces
+
+The `BatchExtractor`, `Transformer`, and `BatchLoader` interfaces are defined in the `pipeline` package (the consumer), not in the adapter packages that implement them.
+
+**Why**: Follows Go's convention of defining interfaces where they are used. The pipeline package declares what it needs; adapters satisfy those contracts. This keeps the pipeline testable with in-memory implementations and avoids import cycles.
+
+### Poison Pill Handling
+
+Malformed messages are logged, their offsets committed, and processing continues with the next message.
+
+**Why**: A single bad message should not block the entire pipeline. Committing the offset prevents the poison pill from being redelivered indefinitely. The warning log provides visibility for investigation.
+
+## Capacity
+
+SPC data volumes are small (~1,000--5,000 records/day during storm season). The pipeline processes an entire day's data in seconds. At ~11--100 messages/second throughput, the service is over-provisioned by orders of magnitude for expected load. The 256 MB container memory limit provides 5--8x headroom over the ~30--50 MB steady-state footprint.
+
+For horizontal scaling, deploy multiple instances with Kafka consumer groups (`KAFKA_GROUP_ID`). Throughput scales linearly up to the source topic partition count.

@@ -87,12 +87,6 @@ Key settings:
 - `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`: Topics are auto-created when the service starts consuming/producing
 - `KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1`: Single-node setup for local development
 
-## Production Considerations
+## Production
 
-- Replace the single-node Kafka setup with a managed Kafka service or multi-broker cluster
-- Set `KAFKA_AUTO_CREATE_TOPICS_ENABLE=false` and pre-create topics with appropriate partition counts and replication factors
-- Configure `KAFKA_GROUP_ID` per environment to isolate consumer groups
-- Set `LOG_FORMAT=json` for structured log aggregation
-- Monitor the Prometheus metrics endpoint with your observability stack
-- Consider running multiple ETL instances for horizontal scaling (Kafka consumer groups handle partition assignment automatically)
-- **Geocoding (Mapbox)**: Set `MAPBOX_TOKEN` to enable geocoding enrichment. Be aware of Mapbox API rate limits and pricing. The LRU cache (`MAPBOX_CACHE_SIZE`, default 1000) reduces redundant calls for frequently seen locations. Set `MAPBOX_TIMEOUT` appropriately for your network latency to the Mapbox API. Geocoding failures are non-fatal -- the pipeline continues without geocoded data.
+For cloud deployment options and cost analysis, see the [system Architecture wiki](https://github.com/couchcryptid/storm-data-system/wiki/Architecture#gcp-cloud-cost-analysis).

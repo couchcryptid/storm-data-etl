@@ -4,9 +4,8 @@ A Go service that consumes raw weather storm reports from Kafka, enriches and no
 
 ## Pages
 
-- [[Architecture]] -- System design, package layout, and design decisions
+- [[Architecture]] -- System design, package layout, design decisions, and capacity
 - [[Configuration]] -- Environment variables and validation
-- [[Deployment]] -- Docker Compose setup and production considerations
+- [[Deployment]] -- Docker Compose setup and Docker image
 - [[Development]] -- Build, test, lint, CI, and project conventions
 - [[Enrichment Rules|Enrichment]] -- Transformation pipeline, normalization, and severity classification
-- [[Performance]] -- Theoretical throughput, scaling, and bottleneck analysis

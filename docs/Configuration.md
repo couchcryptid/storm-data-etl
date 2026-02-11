@@ -14,6 +14,8 @@ All configuration is via environment variables. Every variable has a default sui
 | `LOG_LEVEL`          | `info`                     | Log level: `debug`, `info`, `warn`, `error`    |
 | `LOG_FORMAT`         | `json`                     | Log format: `json` or `text`                   |
 | `SHUTDOWN_TIMEOUT`   | `10s`                      | Graceful shutdown deadline (Go duration)       |
+| `BATCH_SIZE`         | `50`                       | Messages per batch (1--1000)                   |
+| `BATCH_FLUSH_INTERVAL` | `500ms`                  | Max wait before flushing a partial batch (Go duration) |
 
 ### Mapbox Geocoding (Feature-Flagged)
 

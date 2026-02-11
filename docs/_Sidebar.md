@@ -6,4 +6,3 @@
 - [[Deployment]]
 - [[Development]]
 - [[Enrichment Rules|Enrichment]]
-- [[Performance]]
