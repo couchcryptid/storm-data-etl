@@ -319,7 +319,7 @@ func TestDomain_ParseRawEvent(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEmpty(t, event.ID)
 	assert.Equal(t, "wind", event.EventType)
-	assert.Equal(t, 65.0, event.Measurement.Magnitude)
+	assert.InDelta(t, 65.0, event.Measurement.Magnitude, 0.0001)
 	assert.True(t, event.ProcessedAt.IsZero())
 }
 

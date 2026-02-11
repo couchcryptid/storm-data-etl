@@ -26,7 +26,7 @@ func TestMapMessageToRawEvent(t *testing.T) {
 	raw := mapMessageToRawEvent(msg)
 
 	assert.Equal(t, []byte("key-1"), raw.Key)
-	assert.Equal(t, []byte(`{"id":"evt-1"}`), raw.Value)
+	assert.JSONEq(t, `{"id":"evt-1"}`, string(raw.Value))
 	assert.Equal(t, "raw-weather-reports", raw.Topic)
 	assert.Equal(t, 2, raw.Partition)
 	assert.Equal(t, int64(42), raw.Offset)
@@ -46,7 +46,7 @@ func TestMapOutputEventToMessage(t *testing.T) {
 	msg := mapOutputEventToMessage(event)
 
 	assert.Equal(t, []byte("key-1"), msg.Key)
-	assert.Equal(t, []byte(`{"id":"evt-1"}`), msg.Value)
+	assert.JSONEq(t, `{"id":"evt-1"}`, string(msg.Value))
 	assert.Len(t, msg.Headers, 1)
 	assert.Equal(t, "type", msg.Headers[0].Key)
 	assert.Equal(t, []byte("hail"), msg.Headers[0].Value)

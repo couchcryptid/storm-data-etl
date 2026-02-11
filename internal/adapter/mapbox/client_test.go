@@ -52,7 +52,7 @@ func TestClient_ForwardGeocode_Success(t *testing.T) {
 			},
 		}
 		w.Header().Set(headerContentType, contentTypeJSON)
-		require.NoError(t, json.NewEncoder(w).Encode(resp))
+		assert.NoError(t, json.NewEncoder(w).Encode(resp))
 	}))
 	defer srv.Close()
 
@@ -60,11 +60,11 @@ func TestClient_ForwardGeocode_Success(t *testing.T) {
 	result, err := c.ForwardGeocode(context.Background(), "AUSTIN", "TX")
 	require.NoError(t, err)
 
-	assert.Equal(t, 30.2672, result.Lat)
-	assert.Equal(t, -97.7431, result.Lon)
+	assert.InDelta(t, 30.2672, result.Lat, 0.0001)
+	assert.InDelta(t, -97.7431, result.Lon, 0.0001)
 	assert.Equal(t, "Austin, Texas, United States", result.FormattedAddress)
 	assert.Equal(t, "Austin", result.PlaceName)
-	assert.Equal(t, 0.95, result.Confidence)
+	assert.InDelta(t, 0.95, result.Confidence, 0.0001)
 }
 
 func TestClient_ReverseGeocode_Success(t *testing.T) {
@@ -80,7 +80,7 @@ func TestClient_ReverseGeocode_Success(t *testing.T) {
 			},
 		}
 		w.Header().Set(headerContentType, contentTypeJSON)
-		require.NoError(t, json.NewEncoder(w).Encode(resp))
+		assert.NoError(t, json.NewEncoder(w).Encode(resp))
 	}))
 	defer srv.Close()
 
@@ -90,20 +90,20 @@ func TestClient_ReverseGeocode_Success(t *testing.T) {
 
 	assert.Equal(t, "Austin, Travis County, Texas", result.FormattedAddress)
 	assert.Equal(t, "Austin", result.PlaceName)
-	assert.Equal(t, 0.98, result.Confidence)
+	assert.InDelta(t, 0.98, result.Confidence, 0.0001)
 }
 
 func TestClient_ForwardGeocode_NoResults(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set(headerContentType, contentTypeJSON)
-		require.NoError(t, json.NewEncoder(w).Encode(response{Features: []feature{}}))
+		assert.NoError(t, json.NewEncoder(w).Encode(response{Features: []feature{}}))
 	}))
 	defer srv.Close()
 
 	c := testClient(srv.URL)
 	result, err := c.ForwardGeocode(context.Background(), "NONEXISTENT", "XX")
 	require.NoError(t, err)
-	assert.Equal(t, float64(0), result.Lat)
+	assert.InDelta(t, 0, result.Lat, 0.0001)
 	assert.Empty(t, result.FormattedAddress)
 }
 

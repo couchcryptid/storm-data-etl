@@ -68,11 +68,11 @@ func TestEnrichWithGeocoding_ForwardGeocode(t *testing.T) {
 
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
-	assert.Equal(t, 30.2672, result.Geo.Lat)
-	assert.Equal(t, -97.7431, result.Geo.Lon)
+	assert.InDelta(t, 30.2672, result.Geo.Lat, 0.0001)
+	assert.InDelta(t, -97.7431, result.Geo.Lon, 0.0001)
 	assert.Equal(t, "Austin, Texas, United States", result.Geocoding.FormattedAddress)
 	assert.Equal(t, "Austin", result.Geocoding.PlaceName)
-	assert.Equal(t, 0.95, result.Geocoding.Confidence)
+	assert.InDelta(t, 0.95, result.Geocoding.Confidence, 0.0001)
 	assert.Equal(t, "forward", result.Geocoding.Source)
 	assert.Equal(t, 1, geo.forwardCalls)
 	assert.Equal(t, 0, geo.reverseCalls)
@@ -96,7 +96,7 @@ func TestEnrichWithGeocoding_ReverseGeocode(t *testing.T) {
 
 	assert.Equal(t, "Austin, Travis County, Texas", result.Geocoding.FormattedAddress)
 	assert.Equal(t, "Austin", result.Geocoding.PlaceName)
-	assert.Equal(t, 0.98, result.Geocoding.Confidence)
+	assert.InDelta(t, 0.98, result.Geocoding.Confidence, 0.0001)
 	assert.Equal(t, "reverse", result.Geocoding.Source)
 	assert.Equal(t, 0, geo.forwardCalls)
 	assert.Equal(t, 1, geo.reverseCalls)
@@ -116,7 +116,7 @@ func TestEnrichWithGeocoding_ForwardError_GracefulDegradation(t *testing.T) {
 
 	assert.Equal(t, "failed", result.Geocoding.Source)
 	assert.Empty(t, result.Geocoding.FormattedAddress)
-	assert.Equal(t, float64(0), result.Geo.Lat) // coordinates not set
+	assert.InDelta(t, 0, result.Geo.Lat, 0.0001) // coordinates not set
 }
 
 func TestEnrichWithGeocoding_ReverseError_GracefulDegradation(t *testing.T) {
@@ -132,7 +132,7 @@ func TestEnrichWithGeocoding_ReverseError_GracefulDegradation(t *testing.T) {
 	result := EnrichWithGeocoding(context.Background(), event, geo, discardLogger())
 
 	assert.Equal(t, "failed", result.Geocoding.Source)
-	assert.Equal(t, 30.2672, result.Geo.Lat) // original coordinates preserved
+	assert.InDelta(t, 30.2672, result.Geo.Lat, 0.0001) // original coordinates preserved
 }
 
 func TestEnrichWithGeocoding_NoLocationData(t *testing.T) {

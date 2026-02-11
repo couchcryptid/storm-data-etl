@@ -1,4 +1,4 @@
-.PHONY: build run test test-unit test-integration test-cover lint fmt clean
+.PHONY: build run test test-unit test-integration test-cover lint fmt vuln clean
 
 build:
 	go build -o bin/etl ./cmd/etl
@@ -24,6 +24,9 @@ lint:
 fmt:
 	gofmt -w .
 	goimports -w .
+
+vuln:
+	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 clean:
 	rm -rf bin/ coverage.out

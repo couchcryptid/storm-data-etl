@@ -33,9 +33,9 @@ func TestParseRawEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "hail", result.EventType)
-		assert.Equal(t, 31.02, result.Geo.Lat)
-		assert.Equal(t, -98.44, result.Geo.Lon)
-		assert.Equal(t, 125.0, result.Measurement.Magnitude)
+		assert.InDelta(t, 31.02, result.Geo.Lat, 0.0001)
+		assert.InDelta(t, -98.44, result.Geo.Lon, 0.0001)
+		assert.InDelta(t, 125.0, result.Measurement.Magnitude, 0.0001)
 		assert.Equal(t, "8 ESE Chappel", result.Location.Raw)
 		assert.Equal(t, "San Saba", result.Location.County)
 		assert.Equal(t, "TX", result.Location.State)
@@ -54,8 +54,8 @@ func TestParseRawEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "tornado", result.EventType)
-		assert.Equal(t, 2.0, result.Measurement.Magnitude)
-		assert.Equal(t, 34.96, result.Geo.Lat)
+		assert.InDelta(t, 2.0, result.Measurement.Magnitude, 0.0001)
+		assert.InDelta(t, 34.96, result.Geo.Lat, 0.0001)
 		assert.True(t, strings.HasPrefix(result.ID, "tornado-"))
 	})
 
@@ -66,7 +66,7 @@ func TestParseRawEvent(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, "wind", result.EventType)
-		assert.Equal(t, 65.0, result.Measurement.Magnitude)
+		assert.InDelta(t, 65.0, result.Measurement.Magnitude, 0.0001)
 		assert.True(t, strings.HasPrefix(result.ID, "wind-"))
 	})
 
@@ -76,7 +76,7 @@ func TestParseRawEvent(t *testing.T) {
 		result, err := ParseRawEvent(raw)
 
 		require.NoError(t, err)
-		assert.Equal(t, 0.0, result.Measurement.Magnitude)
+		assert.InDelta(t, 0.0, result.Measurement.Magnitude, 0.0001)
 	})
 
 	t.Run("invalid JSON", func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestParseRawEvent(t *testing.T) {
 		result, err := ParseRawEvent(raw)
 
 		require.NoError(t, err)
-		assert.Equal(t, "", result.EventType)
+		assert.Empty(t, result.EventType)
 		assert.True(t, result.ProcessedAt.IsZero())
 	})
 
@@ -155,7 +155,7 @@ func TestParseMagnitudeField(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseMagnitudeField(tt.typ, tt.size, tt.fScale, tt.speed)
-			assert.Equal(t, tt.expected, result)
+			assert.InDelta(t, tt.expected, result, 0.0001)
 		})
 	}
 }
@@ -182,7 +182,7 @@ func TestGenerateID(t *testing.T) {
 		id := generateID("", "TX", 31.02, -98.44, "1510")
 		assert.NotEmpty(t, id)
 		// No type prefix, just the hex hash
-		assert.False(t, strings.Contains(id, "hail"))
+		assert.NotContains(t, id, "hail")
 	})
 }
 
@@ -206,13 +206,13 @@ func TestEnrichStormEvent(t *testing.T) {
 
 		assert.Equal(t, "hail", result.EventType)
 		assert.Equal(t, "in", result.Measurement.Unit)
-		assert.Equal(t, 1.75, result.Measurement.Magnitude) // normalized from 175
+		assert.InDelta(t, 1.75, result.Measurement.Magnitude, 0.0001) // normalized from 175
 		require.NotNil(t, result.Measurement.Severity)
 		assert.Equal(t, "severe", *result.Measurement.Severity)
 		assert.Equal(t, "ABC", result.SourceOffice)
 		assert.Equal(t, "AUSTIN", result.Location.Name)
 		require.NotNil(t, result.Location.Distance)
-		assert.Equal(t, 5.2, *result.Location.Distance)
+		assert.InDelta(t, 5.2, *result.Location.Distance, 0.0001)
 		require.NotNil(t, result.Location.Direction)
 		assert.Equal(t, "NW", *result.Location.Direction)
 		assert.Equal(t, testTimeBucket, result.TimeBucket)
@@ -229,7 +229,7 @@ func TestEnrichStormEvent(t *testing.T) {
 
 		assert.Equal(t, "wind", result.EventType)
 		assert.Equal(t, "mph", result.Measurement.Unit)
-		assert.Equal(t, 85.0, result.Measurement.Magnitude)
+		assert.InDelta(t, 85.0, result.Measurement.Magnitude, 0.0001)
 		require.NotNil(t, result.Measurement.Severity)
 		assert.Equal(t, "severe", *result.Measurement.Severity)
 	})
@@ -244,7 +244,7 @@ func TestEnrichStormEvent(t *testing.T) {
 
 		assert.Equal(t, "tornado", result.EventType)
 		assert.Equal(t, "f_scale", result.Measurement.Unit)
-		assert.Equal(t, 3.0, result.Measurement.Magnitude)
+		assert.InDelta(t, 3.0, result.Measurement.Magnitude, 0.0001)
 		require.NotNil(t, result.Measurement.Severity)
 		assert.Equal(t, "severe", *result.Measurement.Severity)
 	})
@@ -322,7 +322,7 @@ func TestNormalizeMagnitude(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := normalizeMagnitude(tt.eventType, tt.magnitude, tt.unit)
-			assert.Equal(t, tt.expected, result)
+			assert.InDelta(t, tt.expected, result, 0.0001)
 		})
 	}
 }
@@ -488,7 +488,7 @@ func TestSerializeStormEvent(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, testEventID, unmarshaled.ID)
 		assert.Equal(t, "hail", unmarshaled.EventType)
-		assert.Equal(t, 1.5, unmarshaled.Measurement.Magnitude)
+		assert.InDelta(t, 1.5, unmarshaled.Measurement.Magnitude, 0.0001)
 
 		assert.Equal(t, "hail", result.Headers["type"])
 		assert.Equal(t, "2024-04-26T12:00:00Z", result.Headers["processed_at"])
@@ -537,8 +537,8 @@ func TestSerializeStormEvent(t *testing.T) {
 		var unmarshaled StormEvent
 		err = json.Unmarshal(result.Value, &unmarshaled)
 		require.NoError(t, err)
-		assert.Equal(t, 30.2672, unmarshaled.Geo.Lat)
-		assert.Equal(t, -97.7431, unmarshaled.Geo.Lon)
+		assert.InDelta(t, 30.2672, unmarshaled.Geo.Lat, 0.0001)
+		assert.InDelta(t, -97.7431, unmarshaled.Geo.Lon, 0.0001)
 		assert.Equal(t, "AUSTIN", unmarshaled.Location.Name)
 		assert.Equal(t, "AUS", unmarshaled.SourceOffice)
 	})
@@ -564,6 +564,6 @@ func TestSetClock(t *testing.T) {
 
 		// Real clock should return current time (within a small window)
 		now := clock.Now()
-		assert.True(t, time.Since(now) < time.Second)
+		assert.Less(t, time.Since(now), time.Second)
 	})
 }
