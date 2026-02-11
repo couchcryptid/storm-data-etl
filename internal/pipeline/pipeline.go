@@ -11,9 +11,9 @@ import (
 	"github.com/couchcryptid/storm-data-etl/internal/observability"
 )
 
-// Extractor reads a single raw event from the source.
-type Extractor interface {
-	Extract(ctx context.Context) (domain.RawEvent, error)
+// BatchExtractor reads up to batchSize raw events from the source.
+type BatchExtractor interface {
+	ExtractBatch(ctx context.Context, batchSize int) ([]domain.RawEvent, error)
 }
 
 // Transformer converts a raw event into an output event.
@@ -21,29 +21,31 @@ type Transformer interface {
 	Transform(ctx context.Context, raw domain.RawEvent) (domain.OutputEvent, error)
 }
 
-// Loader writes an output event to the destination.
-type Loader interface {
-	Load(ctx context.Context, event domain.OutputEvent) error
+// BatchLoader writes multiple output events to the destination.
+type BatchLoader interface {
+	LoadBatch(ctx context.Context, events []domain.OutputEvent) error
 }
 
 // Pipeline orchestrates the extract-transform-load loop.
 type Pipeline struct {
-	extractor   Extractor
+	extractor   BatchExtractor
 	transformer Transformer
-	loader      Loader
+	loader      BatchLoader
 	logger      *slog.Logger
 	metrics     *observability.Metrics
 	ready       atomic.Bool
+	batchSize   int
 }
 
 // New creates a Pipeline with the given stages and observability.
-func New(e Extractor, t Transformer, l Loader, logger *slog.Logger, metrics *observability.Metrics) *Pipeline {
+func New(e BatchExtractor, t Transformer, l BatchLoader, logger *slog.Logger, metrics *observability.Metrics, batchSize int) *Pipeline {
 	return &Pipeline{
 		extractor:   e,
 		transformer: t,
 		loader:      l,
 		logger:      logger,
 		metrics:     metrics,
+		batchSize:   batchSize,
 	}
 }
 
@@ -56,9 +58,9 @@ func (p *Pipeline) CheckReadiness(_ context.Context) error {
 	return nil
 }
 
-// Run executes the ETL loop until the context is cancelled.
+// Run executes the batch ETL loop until the context is cancelled.
 func (p *Pipeline) Run(ctx context.Context) error {
-	p.logger.Info("pipeline started")
+	p.logger.Info("pipeline started", "batch_size", p.batchSize)
 	p.metrics.PipelineRunning.Set(1)
 	defer p.metrics.PipelineRunning.Set(0)
 
@@ -73,19 +75,53 @@ func (p *Pipeline) Run(ctx context.Context) error {
 		default:
 		}
 
-		start := time.Now()
-
-		raw, err := p.extractor.Extract(ctx)
-		if err != nil {
-			p.logger.Error("extract failed", "error", err)
-			if !p.backoffOrStop(ctx, &backoff, maxBackoff) {
-				return nil
-			}
-			continue
+		if !p.processBatch(ctx, &backoff, maxBackoff) {
+			return nil
 		}
-		p.metrics.MessagesConsumed.Inc()
-		backoff = 200 * time.Millisecond
+	}
+}
 
+// processBatch runs one extract-transform-load cycle. Returns false if the pipeline should stop.
+func (p *Pipeline) processBatch(ctx context.Context, backoff *time.Duration, maxBackoff time.Duration) bool {
+	start := time.Now()
+
+	rawBatch, err := p.extractor.ExtractBatch(ctx, p.batchSize)
+	if err != nil {
+		if ctx.Err() != nil {
+			return false
+		}
+		p.logger.Error("extract batch failed", "error", err)
+		return p.backoffOrStop(ctx, backoff, maxBackoff)
+	}
+
+	if len(rawBatch) == 0 {
+		return ctx.Err() == nil
+	}
+
+	p.metrics.MessagesConsumed.Add(float64(len(rawBatch)))
+	p.metrics.BatchSize.Observe(float64(len(rawBatch)))
+	*backoff = 200 * time.Millisecond
+
+	loaded, ok := p.transformAndLoad(ctx, rawBatch, backoff, maxBackoff)
+	if !ok {
+		return false
+	}
+
+	if loaded > 0 {
+		p.metrics.BatchProcessingDuration.Observe(time.Since(start).Seconds())
+		p.ready.Store(true)
+	}
+	return true
+}
+
+// transformAndLoad transforms each message in the batch, loads the successes,
+// and commits offsets. Returns the number of successfully loaded messages and
+// false if the pipeline should stop.
+func (p *Pipeline) transformAndLoad(ctx context.Context, rawBatch []domain.RawEvent, backoff *time.Duration, maxBackoff time.Duration) (int, bool) {
+	outBatch := make([]domain.OutputEvent, 0, len(rawBatch))
+	successfulRaws := make([]domain.RawEvent, 0, len(rawBatch))
+
+	for _, raw := range rawBatch {
 		out, err := p.transformer.Transform(ctx, raw)
 		if err != nil {
 			p.logger.Warn("transform failed, skipping message",
@@ -98,20 +134,26 @@ func (p *Pipeline) Run(ctx context.Context) error {
 			p.commitOffset(ctx, raw)
 			continue
 		}
-
-		if err := p.loader.Load(ctx, out); err != nil {
-			p.logger.Error("load failed", "error", err)
-			if !p.backoffOrStop(ctx, &backoff, maxBackoff) {
-				return nil
-			}
-			continue
-		}
-		p.metrics.MessagesProduced.Inc()
-		p.commitOffset(ctx, raw)
-
-		p.metrics.ProcessingDuration.Observe(time.Since(start).Seconds())
-		p.ready.Store(true)
+		outBatch = append(outBatch, out)
+		successfulRaws = append(successfulRaws, raw)
 	}
+
+	if len(outBatch) == 0 {
+		return 0, true
+	}
+
+	if err := p.loader.LoadBatch(ctx, outBatch); err != nil {
+		p.logger.Error("load batch failed", "error", err, "batch_size", len(outBatch))
+		return 0, p.backoffOrStop(ctx, backoff, maxBackoff)
+	}
+
+	p.metrics.MessagesProduced.Add(float64(len(outBatch)))
+
+	for _, raw := range successfulRaws {
+		p.commitOffset(ctx, raw)
+	}
+
+	return len(outBatch), true
 }
 
 // backoffOrStop checks for context cancellation, sleeps with the current backoff,

@@ -25,6 +25,8 @@ func TestLoad_Defaults(t *testing.T) {
 	assert.Equal(t, "info", cfg.LogLevel)
 	assert.Equal(t, "json", cfg.LogFormat)
 	assert.Equal(t, 10*time.Second, cfg.ShutdownTimeout)
+	assert.Equal(t, 50, cfg.BatchSize)
+	assert.Equal(t, 500*time.Millisecond, cfg.BatchFlushInterval)
 	assert.False(t, cfg.MapboxEnabled)
 	assert.Empty(t, cfg.MapboxToken)
 	assert.Equal(t, 5*time.Second, cfg.MapboxTimeout)
@@ -40,6 +42,8 @@ func TestLoad_CustomEnv(t *testing.T) {
 	t.Setenv("LOG_LEVEL", "debug")
 	t.Setenv("LOG_FORMAT", "text")
 	t.Setenv("SHUTDOWN_TIMEOUT", "30s")
+	t.Setenv("BATCH_SIZE", "100")
+	t.Setenv("BATCH_FLUSH_INTERVAL", "1s")
 	t.Setenv("MAPBOX_TOKEN", testMapboxToken)
 	t.Setenv("MAPBOX_TIMEOUT", "10s")
 	t.Setenv("MAPBOX_CACHE_SIZE", "500")
@@ -55,6 +59,8 @@ func TestLoad_CustomEnv(t *testing.T) {
 	assert.Equal(t, "debug", cfg.LogLevel)
 	assert.Equal(t, "text", cfg.LogFormat)
 	assert.Equal(t, 30*time.Second, cfg.ShutdownTimeout)
+	assert.Equal(t, 100, cfg.BatchSize)
+	assert.Equal(t, 1*time.Second, cfg.BatchFlushInterval)
 	assert.True(t, cfg.MapboxEnabled)
 	assert.Equal(t, testMapboxToken, cfg.MapboxToken)
 	assert.Equal(t, 10*time.Second, cfg.MapboxTimeout)
@@ -73,6 +79,27 @@ func TestLoad_NegativeShutdownTimeout(t *testing.T) {
 	_, err := Load()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "SHUTDOWN_TIMEOUT")
+}
+
+func TestLoad_InvalidBatchSize(t *testing.T) {
+	t.Setenv("BATCH_SIZE", "0")
+	_, err := Load()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "BATCH_SIZE")
+}
+
+func TestLoad_BatchSizeTooLarge(t *testing.T) {
+	t.Setenv("BATCH_SIZE", "9999")
+	_, err := Load()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "BATCH_SIZE")
+}
+
+func TestLoad_InvalidBatchFlushInterval(t *testing.T) {
+	t.Setenv("BATCH_FLUSH_INTERVAL", "not-a-duration")
+	_, err := Load()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "BATCH_FLUSH_INTERVAL")
 }
 
 func TestLoad_InvalidMapboxTimeout(t *testing.T) {

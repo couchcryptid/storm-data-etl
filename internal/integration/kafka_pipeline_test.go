@@ -229,17 +229,18 @@ func TestPipelineEndToEnd(t *testing.T) {
 		assert.False(t, tm.Event.TimeBucket.IsZero(), "missing time_bucket")
 	}
 
-	assert.Equal(t, 10, typeCounts["hail"], "hail count")
-	assert.Equal(t, 10, typeCounts["tornado"], "tornado count")
+	assert.Equal(t, 79, typeCounts["hail"], "hail count")
+	assert.Equal(t, 149, typeCounts["tornado"], "tornado count")
+	assert.Equal(t, 43, typeCounts["wind"], "wind count")
 
-	// Spot-check a known record: first hail (8 ESE Chappel, San Saba TX).
+	// Spot-check a known record: 8 ESE Chappel, San Saba TX (1.25" hail).
 	var foundHail bool
 	for _, tm := range received {
-		if tm.Event.Location.State != "TX" || tm.Event.Location.County != "San Saba" {
+		if tm.Event.EventType != "hail" || tm.Event.Measurement.Magnitude != 1.25 ||
+			tm.Event.Location.County != "San Saba" {
 			continue
 		}
 		foundHail = true
-		assert.Equal(t, "hail", tm.Event.EventType)
 		assert.Equal(t, "Chappel", tm.Event.Location.Name)
 		require.NotNil(t, tm.Event.Location.Direction)
 		assert.Equal(t, "ESE", *tm.Event.Location.Direction)
@@ -248,11 +249,10 @@ func TestPipelineEndToEnd(t *testing.T) {
 		assert.Equal(t, "SJT", tm.Event.SourceOffice)
 		require.NotNil(t, tm.Event.Measurement.Severity)
 		assert.Equal(t, "moderate", *tm.Event.Measurement.Severity)
-		assert.Equal(t, 1.25, tm.Event.Measurement.Magnitude)
 		assert.Equal(t, time.Date(2024, time.April, 26, 15, 0, 0, 0, time.UTC), tm.Event.TimeBucket)
 		break
 	}
-	assert.True(t, foundHail, "expected to find San Saba TX hail record")
+	assert.True(t, foundHail, "expected to find San Saba TX 1.25in hail record")
 
 	// Spot-check a tornado record: 2 N Mcalester, Pittsburg OK.
 	var foundTornado bool

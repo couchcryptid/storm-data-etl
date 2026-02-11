@@ -19,6 +19,9 @@ type Config struct {
 	LogFormat        string
 	ShutdownTimeout  time.Duration
 
+	BatchSize          int
+	BatchFlushInterval time.Duration
+
 	// Mapbox geocoding configuration.
 	MapboxToken     string
 	MapboxEnabled   bool
@@ -40,12 +43,17 @@ func Load() (*Config, error) {
 		return nil, errors.New("invalid MAPBOX_TIMEOUT")
 	}
 
-	mapboxCacheSize := 1000
-	if s := os.Getenv("MAPBOX_CACHE_SIZE"); s != "" {
-		if n, err3 := strconv.Atoi(s); err3 == nil && n > 0 {
-			mapboxCacheSize = n
-		}
+	batchSize, err := parseBatchSize()
+	if err != nil {
+		return nil, err
 	}
+
+	flushInterval, err := parseBatchFlushInterval()
+	if err != nil {
+		return nil, err
+	}
+
+	mapboxCacheSize := parseMapboxCacheSize()
 
 	mapboxToken := os.Getenv("MAPBOX_TOKEN")
 	mapboxEnabled := mapboxToken != ""
@@ -54,14 +62,16 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		KafkaBrokers:     parseBrokers(envOrDefault("KAFKA_BROKERS", "localhost:9092")),
-		KafkaSourceTopic: envOrDefault("KAFKA_SOURCE_TOPIC", "raw-weather-reports"),
-		KafkaSinkTopic:   envOrDefault("KAFKA_SINK_TOPIC", "transformed-weather-data"),
-		KafkaGroupID:     envOrDefault("KAFKA_GROUP_ID", "storm-data-etl"),
-		HTTPAddr:         envOrDefault("HTTP_ADDR", ":8080"),
-		LogLevel:         envOrDefault("LOG_LEVEL", "info"),
-		LogFormat:        envOrDefault("LOG_FORMAT", "json"),
-		ShutdownTimeout:  shutdownTimeout,
+		KafkaBrokers:       parseBrokers(envOrDefault("KAFKA_BROKERS", "localhost:9092")),
+		KafkaSourceTopic:   envOrDefault("KAFKA_SOURCE_TOPIC", "raw-weather-reports"),
+		KafkaSinkTopic:     envOrDefault("KAFKA_SINK_TOPIC", "transformed-weather-data"),
+		KafkaGroupID:       envOrDefault("KAFKA_GROUP_ID", "storm-data-etl"),
+		HTTPAddr:           envOrDefault("HTTP_ADDR", ":8080"),
+		LogLevel:           envOrDefault("LOG_LEVEL", "info"),
+		LogFormat:          envOrDefault("LOG_FORMAT", "json"),
+		ShutdownTimeout:    shutdownTimeout,
+		BatchSize:          batchSize,
+		BatchFlushInterval: flushInterval,
 
 		MapboxToken:     mapboxToken,
 		MapboxEnabled:   mapboxEnabled,
@@ -90,6 +100,36 @@ func envOrDefault(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func parseBatchSize() (int, error) {
+	s := os.Getenv("BATCH_SIZE")
+	if s == "" {
+		return 50, nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 || n > 1000 {
+		return 0, errors.New("invalid BATCH_SIZE: must be 1-1000")
+	}
+	return n, nil
+}
+
+func parseBatchFlushInterval() (time.Duration, error) {
+	s := envOrDefault("BATCH_FLUSH_INTERVAL", "500ms")
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return 0, errors.New("invalid BATCH_FLUSH_INTERVAL: must be a positive duration")
+	}
+	return d, nil
+}
+
+func parseMapboxCacheSize() int {
+	if s := os.Getenv("MAPBOX_CACHE_SIZE"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 1000
 }
 
 func parseBrokers(value string) []string {

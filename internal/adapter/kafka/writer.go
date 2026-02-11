@@ -10,7 +10,7 @@ import (
 )
 
 // Writer produces messages to a Kafka topic.
-// It implements pipeline.Loader.
+// It implements pipeline.BatchLoader.
 type Writer struct {
 	writer *kafkago.Writer
 	logger *slog.Logger
@@ -27,10 +27,17 @@ func NewWriter(cfg *config.Config, logger *slog.Logger) *Writer {
 	return &Writer{writer: w, logger: logger}
 }
 
-// Load publishes a single transformed event to the sink Kafka topic.
-func (w *Writer) Load(ctx context.Context, event domain.OutputEvent) error {
-	msg := mapOutputEventToMessage(event)
-	return w.writer.WriteMessages(ctx, msg)
+// LoadBatch publishes multiple transformed events to the sink Kafka topic
+// in a single WriteMessages call for efficiency.
+func (w *Writer) LoadBatch(ctx context.Context, events []domain.OutputEvent) error {
+	if len(events) == 0 {
+		return nil
+	}
+	msgs := make([]kafkago.Message, len(events))
+	for i, event := range events {
+		msgs[i] = mapOutputEventToMessage(event)
+	}
+	return w.writer.WriteMessages(ctx, msgs...)
 }
 
 func (w *Writer) Close() error {

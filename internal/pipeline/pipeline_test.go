@@ -20,19 +20,19 @@ import (
 
 // --- mocks ---
 
-type mockExtractor struct {
-	events []domain.RawEvent
-	index  atomic.Int64
+type mockBatchExtractor struct {
+	batches [][]domain.RawEvent
+	index   atomic.Int64
 }
 
-func (m *mockExtractor) Extract(ctx context.Context) (domain.RawEvent, error) {
+func (m *mockBatchExtractor) ExtractBatch(ctx context.Context, _ int) ([]domain.RawEvent, error) {
 	i := int(m.index.Add(1) - 1)
-	if i >= len(m.events) {
+	if i >= len(m.batches) {
 		// block until context cancelled to simulate waiting for messages
 		<-ctx.Done()
-		return domain.RawEvent{}, ctx.Err()
+		return nil, ctx.Err()
 	}
-	return m.events[i], nil
+	return m.batches[i], nil
 }
 
 type mockTransformer struct {
@@ -46,12 +46,12 @@ func (m *mockTransformer) Transform(_ context.Context, raw domain.RawEvent) (dom
 	return domain.OutputEvent{Key: raw.Key, Value: raw.Value}, nil
 }
 
-type mockLoader struct {
-	loaded []domain.OutputEvent
+type mockBatchLoader struct {
+	batches [][]domain.OutputEvent
 }
 
-func (m *mockLoader) Load(_ context.Context, event domain.OutputEvent) error {
-	m.loaded = append(m.loaded, event)
+func (m *mockBatchLoader) LoadBatch(_ context.Context, events []domain.OutputEvent) error {
+	m.batches = append(m.batches, events)
 	return nil
 }
 
@@ -60,87 +60,248 @@ func newTestMetrics() *observability.Metrics {
 	return observability.NewMetricsForTesting()
 }
 
-// --- tests ---
+const testBatchSize = 50
+
+// --- pipeline tests ---
 
 func TestPipeline_Run_HappyPath(t *testing.T) {
 	raw := makeRawEvent(t, "evt-1", "hail")
 
-	ext := &mockExtractor{events: []domain.RawEvent{raw}}
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw}}}
 	tfm := &mockTransformer{}
-	ldr := &mockLoader{}
+	ldr := &mockBatchLoader{}
 	metrics := newTestMetrics()
 
-	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics)
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	err := p.Run(ctx)
 	require.NoError(t, err)
-	assert.Len(t, ldr.loaded, 1)
-	assert.Equal(t, raw.Value, ldr.loaded[0].Value)
+	require.Len(t, ldr.batches, 1)
+	assert.Len(t, ldr.batches[0], 1)
+	assert.Equal(t, raw.Value, ldr.batches[0][0].Value)
 	assert.NoError(t, p.CheckReadiness(context.Background()))
 }
 
-func TestPipeline_Run_ContextCancellation(t *testing.T) {
-	ext := &mockExtractor{} // no events — will block
+func TestPipeline_Run_BatchMultipleMessages(t *testing.T) {
+	raw1 := makeRawEvent(t, "evt-1", "hail")
+	raw2 := makeRawEvent(t, "evt-2", "tornado")
+
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw1, raw2}}}
 	tfm := &mockTransformer{}
-	ldr := &mockLoader{}
+	ldr := &mockBatchLoader{}
 	metrics := newTestMetrics()
 
-	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics)
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	err := p.Run(ctx)
+	require.NoError(t, err)
+	require.Len(t, ldr.batches, 1)
+	assert.Len(t, ldr.batches[0], 2)
+}
+
+func TestPipeline_Run_ContextCancellation(t *testing.T) {
+	ext := &mockBatchExtractor{} // no batches — will block
+	tfm := &mockTransformer{}
+	ldr := &mockBatchLoader{}
+	metrics := newTestMetrics()
+
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel immediately
 
 	err := p.Run(ctx)
 	require.NoError(t, err)
-	assert.Empty(t, ldr.loaded)
+	assert.Empty(t, ldr.batches)
 }
 
 func TestPipeline_Run_TransformError(t *testing.T) {
 	raw := makeRawEvent(t, "evt-2", "hail")
 
-	ext := &mockExtractor{events: []domain.RawEvent{raw}}
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw}}}
 	tfm := &mockTransformer{err: errors.New("bad data")}
-	ldr := &mockLoader{}
+	ldr := &mockBatchLoader{}
 	metrics := newTestMetrics()
 
-	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics)
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	err := p.Run(ctx)
 	require.NoError(t, err)
-	assert.Empty(t, ldr.loaded)
+	assert.Empty(t, ldr.batches)
 	assert.Error(t, p.CheckReadiness(context.Background()))
 }
 
+func TestPipeline_Run_PartialTransformFailure(t *testing.T) {
+	raw1 := makeRawEvent(t, "evt-1", "hail")
+	raw2 := makeRawEvent(t, "evt-2", "tornado")
+
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw1, raw2}}}
+	tfm := &partialFailTransformer{failOn: 2}
+	ldr := &mockBatchLoader{}
+	metrics := newTestMetrics()
+
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	err := p.Run(ctx)
+	require.NoError(t, err)
+	require.Len(t, ldr.batches, 1)
+	assert.Len(t, ldr.batches[0], 1, "only the first message should be loaded")
+}
+
 func TestPipeline_Run_CommitsAfterLoad(t *testing.T) {
-	commitCalled := false
+	var commitCount atomic.Int64
 
 	raw := makeRawEvent(t, "evt-5", "hail")
 	raw.Topic = "raw-weather-reports"
 	raw.Commit = func(_ context.Context) error {
-		commitCalled = true
+		commitCount.Add(1)
 		return nil
 	}
 
-	ext := &mockExtractor{events: []domain.RawEvent{raw}}
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw}}}
 	tfm := &mockTransformer{}
-	ldr := &mockLoader{}
+	ldr := &mockBatchLoader{}
 	metrics := newTestMetrics()
 
-	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics)
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	err := p.Run(ctx)
 	require.NoError(t, err)
-	assert.True(t, commitCalled)
+	assert.Equal(t, int64(1), commitCount.Load())
 }
+
+func TestPipeline_Run_BatchCommitAll(t *testing.T) {
+	var commitCount atomic.Int64
+	makeCommit := func() func(context.Context) error {
+		return func(_ context.Context) error {
+			commitCount.Add(1)
+			return nil
+		}
+	}
+
+	raw1 := makeRawEvent(t, "evt-1", "hail")
+	raw1.Commit = makeCommit()
+	raw2 := makeRawEvent(t, "evt-2", "tornado")
+	raw2.Commit = makeCommit()
+
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw1, raw2}}}
+	tfm := &mockTransformer{}
+	ldr := &mockBatchLoader{}
+	metrics := newTestMetrics()
+
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	err := p.Run(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), commitCount.Load())
+}
+
+// --- additional mocks ---
+
+type partialFailTransformer struct {
+	count  atomic.Int64
+	failOn int
+}
+
+func (m *partialFailTransformer) Transform(_ context.Context, raw domain.RawEvent) (domain.OutputEvent, error) {
+	n := int(m.count.Add(1))
+	if n == m.failOn {
+		return domain.OutputEvent{}, errors.New("transform failure")
+	}
+	return domain.OutputEvent{Key: raw.Key, Value: raw.Value}, nil
+}
+
+type retryBatchExtractor struct {
+	event domain.RawEvent
+	max   int
+	count atomic.Int64
+}
+
+func (m *retryBatchExtractor) ExtractBatch(ctx context.Context, _ int) ([]domain.RawEvent, error) {
+	n := int(m.count.Add(1))
+	if n > m.max {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return []domain.RawEvent{m.event}, nil
+}
+
+type failingBatchLoader struct {
+	callCount atomic.Int64
+	failUntil int
+	batches   [][]domain.OutputEvent
+}
+
+func (m *failingBatchLoader) LoadBatch(_ context.Context, events []domain.OutputEvent) error {
+	n := int(m.callCount.Add(1))
+	if n <= m.failUntil {
+		return errors.New("load failed")
+	}
+	m.batches = append(m.batches, events)
+	return nil
+}
+
+// --- additional tests ---
+
+func TestPipeline_Run_LoadError_Backoff(t *testing.T) {
+	raw := makeRawEvent(t, "evt-backoff", "hail")
+
+	ext := &retryBatchExtractor{event: raw, max: 2}
+	tfm := &mockTransformer{}
+	ldr := &failingBatchLoader{failUntil: 1}
+	metrics := newTestMetrics()
+
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	err := p.Run(ctx)
+	require.NoError(t, err)
+	assert.Len(t, ldr.batches, 1, "second attempt should succeed after backoff")
+}
+
+func TestPipeline_Run_CommitError(t *testing.T) {
+	raw := makeRawEvent(t, "evt-commit-err", "tornado")
+	raw.Commit = func(_ context.Context) error {
+		return errors.New("commit failed")
+	}
+
+	ext := &mockBatchExtractor{batches: [][]domain.RawEvent{{raw}}}
+	tfm := &mockTransformer{}
+	ldr := &mockBatchLoader{}
+	metrics := newTestMetrics()
+
+	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics, testBatchSize)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	err := p.Run(ctx)
+	require.NoError(t, err)
+	require.Len(t, ldr.batches, 1)
+	assert.Len(t, ldr.batches[0], 1)
+}
+
+// --- domain tests (unchanged) ---
 
 func TestStormTransformer_Transform(t *testing.T) {
 	raw := makeRawCSVEvent(t, "tornado", "EF3")
@@ -240,79 +401,6 @@ func TestDomain_SerializeStormEvent(t *testing.T) {
 	if diff := cmp.Diff(expected, actual); diff != "" {
 		t.Fatalf("roundtrip mismatch (-want +got):\n%s", diff)
 	}
-}
-
-// --- additional mocks ---
-
-type retryExtractor struct {
-	event domain.RawEvent
-	max   int
-	count atomic.Int64
-}
-
-func (m *retryExtractor) Extract(ctx context.Context) (domain.RawEvent, error) {
-	n := int(m.count.Add(1))
-	if n > m.max {
-		<-ctx.Done()
-		return domain.RawEvent{}, ctx.Err()
-	}
-	return m.event, nil
-}
-
-type failingLoader struct {
-	callCount atomic.Int64
-	failUntil int
-	loaded    []domain.OutputEvent
-}
-
-func (m *failingLoader) Load(_ context.Context, event domain.OutputEvent) error {
-	n := int(m.callCount.Add(1))
-	if n <= m.failUntil {
-		return errors.New("load failed")
-	}
-	m.loaded = append(m.loaded, event)
-	return nil
-}
-
-// --- additional tests ---
-
-func TestPipeline_Run_LoadError_Backoff(t *testing.T) {
-	raw := makeRawEvent(t, "evt-backoff", "hail")
-
-	ext := &retryExtractor{event: raw, max: 2}
-	tfm := &mockTransformer{}
-	ldr := &failingLoader{failUntil: 1}
-	metrics := newTestMetrics()
-
-	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	err := p.Run(ctx)
-	require.NoError(t, err)
-	assert.Len(t, ldr.loaded, 1, "second attempt should succeed after backoff")
-}
-
-func TestPipeline_Run_CommitError(t *testing.T) {
-	raw := makeRawEvent(t, "evt-commit-err", "tornado")
-	raw.Commit = func(_ context.Context) error {
-		return errors.New("commit failed")
-	}
-
-	ext := &mockExtractor{events: []domain.RawEvent{raw}}
-	tfm := &mockTransformer{}
-	ldr := &mockLoader{}
-	metrics := newTestMetrics()
-
-	p := pipeline.New(ext, tfm, ldr, slog.Default(), metrics)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
-
-	err := p.Run(ctx)
-	require.NoError(t, err)
-	assert.Len(t, ldr.loaded, 1)
 }
 
 // --- helpers ---

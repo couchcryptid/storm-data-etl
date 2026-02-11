@@ -23,13 +23,14 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 	baseDate := time.Date(2024, time.April, 26, 0, 0, 0, 0, time.UTC)
 
 	cases := []struct {
-		name         string
-		eventType    string
-		expectedUnit string
+		name          string
+		eventType     string
+		expectedUnit  string
+		expectedCount int
 	}{
-		{name: "hail", eventType: "hail", expectedUnit: "in"},
-		{name: "tornado", eventType: "tornado", expectedUnit: "f_scale"},
-		{name: "wind", eventType: "wind", expectedUnit: "mph"},
+		{name: "hail", eventType: "hail", expectedUnit: "in", expectedCount: 79},
+		{name: "tornado", eventType: "tornado", expectedUnit: "f_scale", expectedCount: 149},
+		{name: "wind", eventType: "wind", expectedUnit: "mph", expectedCount: 43},
 	}
 
 	rows := readCombinedRows(t)
@@ -37,7 +38,7 @@ func TestStormTransformer_WithMockJSONData(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			filtered := filterRowsByType(rows, tc.eventType)
-			require.Len(t, filtered, 10)
+			require.Len(t, filtered, tc.expectedCount)
 
 			for _, row := range filtered {
 				raw := rawEventFromCSVRow(t, row, baseDate)

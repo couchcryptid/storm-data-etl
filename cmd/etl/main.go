@@ -44,7 +44,7 @@ func main() {
 	writer := kafkaadapter.NewWriter(cfg, logger)
 	transformer := pipeline.NewTransformer(geocoder, logger)
 
-	p := pipeline.New(reader, transformer, writer, logger, metrics)
+	p := pipeline.New(reader, transformer, writer, logger, metrics, cfg.BatchSize)
 
 	srv := httpadapter.NewServer(cfg.HTTPAddr, p, logger)
 

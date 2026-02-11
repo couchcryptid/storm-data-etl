@@ -12,6 +12,10 @@ type Metrics struct {
 	ProcessingDuration prometheus.Histogram
 	PipelineRunning    prometheus.Gauge
 
+	// Batch processing metrics.
+	BatchSize               prometheus.Histogram
+	BatchProcessingDuration prometheus.Histogram
+
 	// Geocoding metrics.
 	GeocodeRequests    *prometheus.CounterVec   // labels: method={forward,reverse}, outcome={success,error,empty}
 	GeocodeCache       *prometheus.CounterVec   // labels: method={forward,reverse}, result={hit,miss}
@@ -48,6 +52,18 @@ func NewMetrics() *Metrics {
 			Name:      "pipeline_running",
 			Help:      "1 when the pipeline is active, 0 when shut down.",
 		}),
+		BatchSize: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: "storm_etl",
+			Name:      "batch_size",
+			Help:      "Number of messages per batch extracted from Kafka.",
+			Buckets:   []float64{1, 5, 10, 20, 30, 40, 50, 75, 100},
+		}),
+		BatchProcessingDuration: prometheus.NewHistogram(prometheus.HistogramOpts{
+			Namespace: "storm_etl",
+			Name:      "batch_processing_duration_seconds",
+			Help:      "Duration of a complete batch extract-transform-load cycle.",
+			Buckets:   []float64{0.01, 0.05, 0.1, 0.5, 1, 2.5, 5, 10},
+		}),
 		GeocodeRequests: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "storm_etl",
 			Name:      "geocode_requests_total",
@@ -77,6 +93,8 @@ func NewMetrics() *Metrics {
 		m.TransformErrors,
 		m.ProcessingDuration,
 		m.PipelineRunning,
+		m.BatchSize,
+		m.BatchProcessingDuration,
 		m.GeocodeRequests,
 		m.GeocodeCache,
 		m.GeocodeAPIDuration,
@@ -90,14 +108,16 @@ func NewMetrics() *Metrics {
 // "already registered" panics when called from multiple tests.
 func NewMetricsForTesting() *Metrics {
 	return &Metrics{
-		MessagesConsumed:   prometheus.NewCounter(prometheus.CounterOpts{Namespace: "storm_etl", Name: "messages_consumed_total"}),
-		MessagesProduced:   prometheus.NewCounter(prometheus.CounterOpts{Namespace: "storm_etl", Name: "messages_produced_total"}),
-		TransformErrors:    prometheus.NewCounter(prometheus.CounterOpts{Namespace: "storm_etl", Name: "transform_errors_total"}),
-		ProcessingDuration: prometheus.NewHistogram(prometheus.HistogramOpts{Namespace: "storm_etl", Name: "processing_duration_seconds"}),
-		PipelineRunning:    prometheus.NewGauge(prometheus.GaugeOpts{Namespace: "storm_etl", Name: "pipeline_running"}),
-		GeocodeRequests:    prometheus.NewCounterVec(prometheus.CounterOpts{Namespace: "storm_etl", Name: "geocode_requests_total"}, []string{"method", "outcome"}),
-		GeocodeCache:       prometheus.NewCounterVec(prometheus.CounterOpts{Namespace: "storm_etl", Name: "geocode_cache_total"}, []string{"method", "result"}),
-		GeocodeAPIDuration: prometheus.NewHistogramVec(prometheus.HistogramOpts{Namespace: "storm_etl", Name: "geocode_api_duration_seconds"}, []string{"method"}),
-		GeocodeEnabled:     prometheus.NewGauge(prometheus.GaugeOpts{Namespace: "storm_etl", Name: "geocode_enabled"}),
+		MessagesConsumed:        prometheus.NewCounter(prometheus.CounterOpts{Namespace: "storm_etl", Name: "messages_consumed_total"}),
+		MessagesProduced:        prometheus.NewCounter(prometheus.CounterOpts{Namespace: "storm_etl", Name: "messages_produced_total"}),
+		TransformErrors:         prometheus.NewCounter(prometheus.CounterOpts{Namespace: "storm_etl", Name: "transform_errors_total"}),
+		ProcessingDuration:      prometheus.NewHistogram(prometheus.HistogramOpts{Namespace: "storm_etl", Name: "processing_duration_seconds"}),
+		PipelineRunning:         prometheus.NewGauge(prometheus.GaugeOpts{Namespace: "storm_etl", Name: "pipeline_running"}),
+		BatchSize:               prometheus.NewHistogram(prometheus.HistogramOpts{Namespace: "storm_etl", Name: "batch_size"}),
+		BatchProcessingDuration: prometheus.NewHistogram(prometheus.HistogramOpts{Namespace: "storm_etl", Name: "batch_processing_duration_seconds"}),
+		GeocodeRequests:         prometheus.NewCounterVec(prometheus.CounterOpts{Namespace: "storm_etl", Name: "geocode_requests_total"}, []string{"method", "outcome"}),
+		GeocodeCache:            prometheus.NewCounterVec(prometheus.CounterOpts{Namespace: "storm_etl", Name: "geocode_cache_total"}, []string{"method", "result"}),
+		GeocodeAPIDuration:      prometheus.NewHistogramVec(prometheus.HistogramOpts{Namespace: "storm_etl", Name: "geocode_api_duration_seconds"}, []string{"method"}),
+		GeocodeEnabled:          prometheus.NewGauge(prometheus.GaugeOpts{Namespace: "storm_etl", Name: "geocode_enabled"}),
 	}
 }
