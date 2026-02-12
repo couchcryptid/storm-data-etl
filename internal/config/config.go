@@ -41,7 +41,7 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		KafkaBrokers:       sharedcfg.ParseBrokers(sharedcfg.EnvOrDefault("KAFKA_BROKERS", "localhost:9092")),
+		KafkaBrokers:       sharedcfg.ParseBrokers(sharedcfg.EnvOrDefault("KAFKA_BROKERS", "kafka:9092")),
 		KafkaSourceTopic:   sharedcfg.EnvOrDefault("KAFKA_SOURCE_TOPIC", "raw-weather-reports"),
 		KafkaSinkTopic:     sharedcfg.EnvOrDefault("KAFKA_SINK_TOPIC", "transformed-weather-data"),
 		KafkaGroupID:       sharedcfg.EnvOrDefault("KAFKA_GROUP_ID", "storm-data-etl"),

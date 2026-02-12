@@ -44,7 +44,7 @@ All configuration is via environment variables (loaded from `.env` in Docker Com
 
 | Variable             | Default                    | Description                                    |
 | -------------------- | -------------------------- | ---------------------------------------------- |
-| `KAFKA_BROKERS`      | `localhost:9092`           | Comma-separated list of Kafka broker addresses |
+| `KAFKA_BROKERS`      | `kafka:9092`               | Comma-separated list of Kafka broker addresses |
 | `KAFKA_SOURCE_TOPIC` | `raw-weather-reports`      | Topic to consume raw storm reports from        |
 | `KAFKA_SINK_TOPIC`   | `transformed-weather-data` | Topic to produce enriched events to            |
 | `KAFKA_GROUP_ID`     | `storm-data-etl`           | Consumer group ID                              |
@@ -93,7 +93,10 @@ Integration tests require Docker because they use a Kafka container.
 ## Project Structure
 
 ```
-cmd/etl/                    Entry point
+cmd/
+  etl/                      Entry point
+  genmock/                  Generate mock data fixtures for ETL and API test suites
+  validate/                 Cross-repo data integrity checks (CSVs, ETL JSON, API JSON)
 internal/
   adapter/
     httpadapter/            Health, readiness, and metrics HTTP server

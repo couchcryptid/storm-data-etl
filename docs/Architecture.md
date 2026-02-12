@@ -121,11 +121,11 @@ For horizontal scaling, deploy multiple instances with Kafka consumer groups (`K
 
 ## Configuration
 
-All configuration is via environment variables with defaults suitable for local development.
+All configuration is via environment variables with defaults suitable for Docker Compose.
 
 | Variable | Default | Description |
 | -------- | ------- | ----------- |
-| `KAFKA_BROKERS` | `localhost:9092` | Comma-separated Kafka broker addresses |
+| `KAFKA_BROKERS` | `kafka:9092` | Comma-separated Kafka broker addresses |
 | `KAFKA_SOURCE_TOPIC` | `raw-weather-reports` | Topic to consume raw storm reports from |
 | `KAFKA_SINK_TOPIC` | `transformed-weather-data` | Topic to produce enriched events to |
 | `KAFKA_GROUP_ID` | `storm-data-etl` | Consumer group ID |

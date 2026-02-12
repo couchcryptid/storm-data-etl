@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const defaultBroker = "localhost:9092"
+const defaultBroker = "kafka:9092"
 
 func TestLoad_Defaults(t *testing.T) {
 	cfg, err := Load()
