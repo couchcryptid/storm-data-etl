@@ -32,7 +32,7 @@ func ParseRawEvent(raw RawEvent) (StormEvent, error) {
 	lat := parseFloatOrZero(rec.Lat)
 	lon := parseFloatOrZero(rec.Lon)
 	magnitude := parseMagnitudeField(rec.EventType, rec.Size, rec.FScale, rec.Speed)
-	eventTime := parseHHMM(raw.Timestamp, rec.Time)
+	eventTime := parseEventTime(raw.Timestamp, rec.Time)
 
 	return StormEvent{
 		ID:          generateID(rec.EventType, rec.State, lat, lon, rec.Time, magnitude),
@@ -109,6 +109,23 @@ func parseHHMM(baseDate time.Time, hhmm string) time.Time {
 		baseDate.Year(), baseDate.Month(), baseDate.Day(),
 		hour, mins, 0, 0, time.UTC,
 	)
+}
+
+// parseEventTime parses the Time field from the collector payload.
+// New-format payloads contain a full RFC 3339 timestamp (e.g. "2024-04-26T15:10:00Z")
+// set by the collector's expandHHMMToISO. Legacy payloads contain bare HHMM (e.g. "1510")
+// which is combined with the Kafka message timestamp as the base date.
+func parseEventTime(kafkaTimestamp time.Time, timeStr string) time.Time {
+	timeStr = strings.TrimSpace(timeStr)
+	if timeStr == "" {
+		return kafkaTimestamp
+	}
+
+	if t, err := time.Parse(time.RFC3339, timeStr); err == nil {
+		return t
+	}
+
+	return parseHHMM(kafkaTimestamp, timeStr)
 }
 
 // generateID produces a deterministic ID from the event's key fields.

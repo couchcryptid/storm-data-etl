@@ -97,7 +97,7 @@ The pipeline extracts, transforms, and loads messages in configurable batches (`
 
 ### Deterministic IDs
 
-Event IDs are SHA-256 hashes of `type|state|lat|lon|time`. The same raw event always produces the same ID, regardless of how many times it is processed.
+Event IDs are SHA-256 hashes of `type|state|lat|lon|time|magnitude`. The same raw event always produces the same ID, regardless of how many times it is processed.
 
 **Why**: Enables idempotent writes at every downstream stage. The API's `ON CONFLICT (id) DO NOTHING` naturally deduplicates without coordination. No distributed ID generation or sequence allocation needed.
 

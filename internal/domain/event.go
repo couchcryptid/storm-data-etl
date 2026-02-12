@@ -66,23 +66,13 @@ type Measurement struct {
 	Severity  *string `json:"severity,omitempty"`
 }
 
-// Geocoding holds geocoding enrichment results. Currently unused but retained
-// in the wire format to avoid cascading changes to the API schema and database.
-// The API flattens to geocoding_* columns.
-type Geocoding struct {
-	FormattedAddress string  `json:"formatted_address,omitempty"`
-	PlaceName        string  `json:"place_name,omitempty"`
-	Confidence       float64 `json:"confidence,omitempty"`
-	Source           string  `json:"source,omitempty"` // "forward", "reverse", "original", "failed"
-}
-
 // StormEvent is the domain-rich representation after parsing and enrichment.
 //
 // All fields are grouped into nested structs when they represent cohesive domain
-// concepts: Geo (coordinates), Location (NWS place data), Measurement (what was
-// observed), and Geocoding (reverse/forward lookup results). The Kafka wire format
-// reflects this nesting. The API deserializes it via json.Unmarshal, flattens to
-// prefixed DB columns, and gqlgen auto-resolves the GraphQL types from these structs.
+// concepts: Geo (coordinates), Location (NWS place data), and Measurement (what was
+// observed). The Kafka wire format reflects this nesting. The API deserializes it
+// via json.Unmarshal, flattens to prefixed DB columns, and gqlgen auto-resolves
+// the GraphQL types from these structs.
 type StormEvent struct {
 	ID           string      `json:"id"`
 	EventType    string      `json:"event_type"`
@@ -93,7 +83,6 @@ type StormEvent struct {
 	Comments     string      `json:"comments,omitempty"`
 	SourceOffice string      `json:"source_office,omitempty"`
 	TimeBucket   time.Time   `json:"time_bucket,omitempty"`
-	Geocoding    Geocoding   `json:"geocoding,omitempty"`
 
 	RawPayload  []byte    `json:"-"`
 	ProcessedAt time.Time `json:"processed_at"`

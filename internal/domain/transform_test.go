@@ -67,6 +67,15 @@ func TestParseRawEvent(t *testing.T) {
 		assert.True(t, strings.HasPrefix(result.ID, "wind-"))
 	})
 
+	t.Run("ISO timestamp in Time field", func(t *testing.T) {
+		data := []byte(`{"Time":"2024-04-26T15:10:00Z","Size":"125","Location":"8 ESE Chappel","County":"San Saba","State":"TX","Lat":"31.02","Lon":"-98.44","Comments":"","EventType":"hail"}`)
+		raw := RawEvent{Value: data, Timestamp: time.Now()} // Kafka timestamp should be ignored
+		result, err := ParseRawEvent(raw)
+
+		require.NoError(t, err)
+		assert.Equal(t, time.Date(2024, 4, 26, 15, 10, 0, 0, time.UTC), result.EventTime)
+	})
+
 	t.Run("UNK magnitude", func(t *testing.T) {
 		data := []byte(`{"Time":"1245","Speed":"UNK","Location":"Mcalester","County":"Pittsburg","State":"OK","Lat":"34.94","Lon":"-95.77","Comments":"","EventType":"wind"}`)
 		raw := RawEvent{Value: data, Timestamp: baseDate}
@@ -126,6 +135,29 @@ func TestParseHHMM(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseHHMM(baseDate, tt.hhmm)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestParseEventTime(t *testing.T) {
+	baseDate := time.Date(2024, 4, 26, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		timeStr  string
+		expected time.Time
+	}{
+		{"RFC 3339 timestamp", "2024-04-26T15:10:00Z", time.Date(2024, 4, 26, 15, 10, 0, 0, time.UTC)},
+		{"HHMM fallback", "1510", time.Date(2024, 4, 26, 15, 10, 0, 0, time.UTC)},
+		{"three digit HHMM fallback", "930", time.Date(2024, 4, 26, 9, 30, 0, 0, time.UTC)},
+		{testEmptyStr, "", baseDate},
+		{"invalid string", "not-a-time", baseDate},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseEventTime(baseDate, tt.timeStr)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
