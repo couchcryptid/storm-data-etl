@@ -1,4 +1,4 @@
-**Storm Data ETL Service**
+**Storm Data ETL**
 
 - [[Home]]
 - [[Architecture]]

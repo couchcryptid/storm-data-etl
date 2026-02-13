@@ -1,4 +1,4 @@
-# Storm Data ETL Service
+# Storm Data ETL
 
 A Go service that consumes raw weather storm reports from Kafka, enriches and normalizes the data, and produces transformed events to a downstream Kafka topic. Part of the storm data pipeline.
 
@@ -16,6 +16,6 @@ Uses the [storm-data-shared](https://github.com/couchcryptid/storm-data-shared/w
 
 ## Pages
 
-- [[Architecture]] -- System design, package layout, configuration, design decisions, and capacity
+- [[Architecture]] -- Hexagonal design, package layout, configuration, design decisions, and capacity
 - [[Development]] -- Build, test, lint, CI, and project conventions
 - [[Enrichment Rules|Enrichment]] -- Transformation pipeline, normalization, and severity classification

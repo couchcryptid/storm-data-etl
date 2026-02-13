@@ -5,7 +5,7 @@
 ```
              ┌──────────────────────────────────────┐
              │           internal/pipeline           │
-  Kafka ────>│  BatchExtractor  Transformer  Loader  │────> Kafka
+  Kafka ────>│  BatchExtractor  Transformer  BatchLoader  │────> Kafka
   (raw)      │       │              │          │     │      (enriched)
              └───────┼──────────────┼──────────┼─────┘
                      │              │          │
@@ -25,8 +25,8 @@ Application entry point. Wires together configuration, adapters, pipeline stages
 
 Pure domain logic with no infrastructure dependencies.
 
-- **`event.go`** -- Domain types: `RawEvent`, `StormEvent`, `OutputEvent`, `Location`, `Geo`
-- **`transform.go`** -- All transformation and enrichment functions: parsing, normalization, severity derivation, location parsing, serialization
+- **`event.go`** -- Domain types: `RawCSVRecord`, `RawEvent`, `StormEvent`, `Location`, `Geo`, `Measurement`
+- **`transform.go`** -- All transformation and enrichment functions: parsing, normalization, severity derivation, location parsing
 - **`clock.go`** -- Swappable clock for deterministic testing
 
 ### `internal/pipeline`

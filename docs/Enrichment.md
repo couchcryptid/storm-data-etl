@@ -7,7 +7,7 @@ The transform stage applies a series of enrichment steps to each raw storm event
 Each event passes through these steps in order:
 
 1. **Parse** -- Deserialize raw JSON into a `StormEvent`
-2. **Normalize event type** -- Case-insensitive mapping to canonical values
+2. **Normalize event type** -- Exact match to canonical values
 3. **Normalize unit** -- Default unit assignment per event type
 4. **Normalize magnitude** -- Convert legacy hundredths format for hail
 5. **Derive severity** -- Classify severity based on event type and magnitude
@@ -74,7 +74,7 @@ Severity is derived from event type and magnitude. A magnitude of `0` produces n
 
 | Magnitude | Severity |
 |---|---|
-| 0 -- 1 | minor |
+| 1 | minor |
 | 2 | moderate |
 | 3 -- 4 | severe |
 | >= 5 | extreme |
@@ -117,12 +117,11 @@ The serialized output includes:
 - **Key**: Event ID as bytes
 - **Value**: Full `StormEvent` JSON (excludes `RawPayload`)
 - **Headers**:
-  - `type`: Normalized event type
+  - `event_type`: Normalized event type
   - `processed_at`: RFC 3339 timestamp of when enrichment occurred
 
 ## Related
 
 - [API Architecture](https://github.com/couchcryptid/storm-data-api/wiki/Architecture) -- downstream database schema and query layer
-- [[Architecture]] -- hexagonal design and enrichment pipeline
-- [[Configuration]] -- environment variables and settings
+- [[Architecture]] -- hexagonal design, enrichment pipeline, and environment variables
 - [[Development]] -- testing enrichment rules

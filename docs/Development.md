@@ -69,12 +69,12 @@ make lint
 
 Uses `golangci-lint` with the configuration in `.golangci.yml`. Enabled linters include:
 
-- `errcheck`, `govet`, `staticcheck` -- correctness
-- `gosec` -- security
+- `bodyclose`, `errorlint`, `gosec`, `noctx` -- security and correctness
+- `gocritic`, `revive` -- style
+- `misspell`, `unparam`, `errname`, `testifylint` -- hygiene
+- `prealloc`, `unconvert` -- performance
+- `exhaustive` -- completeness
 - `gocyclo` -- complexity (threshold: 15)
-- `revive`, `gocritic` -- style
-- `gofmt`, `goimports` -- formatting
-- `misspell`, `unparam` -- hygiene
 
 ## Formatting
 
@@ -92,10 +92,12 @@ The `.pre-commit-config.yaml` configures hooks that run on every commit:
 - End-of-file newline
 - YAML and JSON validation
 - Merge conflict markers
-- `yamllint`
-- `markdownlint`
+- Large file detection
+- Private key detection (gitleaks)
 - `gofmt` and `goimports`
 - `golangci-lint`
+- `yamllint`
+- `markdownlint`
 
 ## CI Pipeline
 
@@ -106,6 +108,7 @@ The `.github/workflows/ci.yml` workflow runs on pushes and pull requests to `mai
 | `test-unit` | `make test-unit` (unit tests with race detector) |
 | `lint` | `make lint` (golangci-lint with the project config) |
 | `build` | `make build` (compile check) |
+| `sonarcloud` | Unit tests with coverage + SonarCloud scan |
 
 A separate `release.yml` workflow (triggered by CI success on `main`) handles versioning, GitHub releases, and Docker image publishing.
 
@@ -121,6 +124,5 @@ A separate `release.yml` workflow (triggered by CI success on `main`) handles ve
 
 - [System Development](https://github.com/couchcryptid/storm-data-system/wiki/Development) -- multi-repo workflow, CI conventions, and cross-service patterns
 - [Shared Development](https://github.com/couchcryptid/storm-data-shared/wiki/Development) -- shared library development and versioning
-- [[Configuration]] -- environment variables and settings
-- [[Architecture]] -- hexagonal design, batch processing, and offset strategy
+- [[Architecture]] -- environment variables, hexagonal design, batch processing, and offset strategy
 - [[Enrichment]] -- severity classification, location parsing, and enrichment rules
