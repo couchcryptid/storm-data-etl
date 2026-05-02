@@ -15,6 +15,7 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /bin/busybox.static /bin/busybox
 COPY --from=build /etl /etl
 
+USER nonroot:nonroot
 EXPOSE 8080
 
 ENTRYPOINT ["/etl"]
